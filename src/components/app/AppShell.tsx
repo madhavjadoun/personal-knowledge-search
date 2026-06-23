@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import type { LottieRefCurrentProps } from "lottie-react";
 import menuAnimation from "../../../public/menu.json";
+import BlurText from "@/components/ui/BlurText";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 
@@ -112,6 +113,7 @@ interface AppShellProps {
 
 export default function AppShell({ children, title, subtitle, action }: AppShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -237,21 +239,35 @@ export default function AppShell({ children, title, subtitle, action }: AppShell
         </div>
 
         {/* User row */}
-        <div className="flex items-center gap-2 px-1 py-1">
-          <div
-            className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-            style={{ background: "linear-gradient(135deg, var(--indigo), var(--violet))" }}
+        <div className="flex items-center justify-between px-1 py-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <div
+              className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
+              style={{ background: "linear-gradient(135deg, var(--indigo), var(--violet))" }}
+            >
+              JD
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold truncate" style={{ color: "var(--text-1)", letterSpacing: "-0.014em" }}>
+                John Doe
+              </p>
+              <p className="text-[10px] truncate" style={{ color: "var(--text-3)" }}>
+                john@workspace.ai
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              localStorage.removeItem("theme");
+              router.push("/");
+            }}
+            className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-zinc-400 hover:text-red-500 transition-colors flex-shrink-0"
+            title="Log out"
           >
-            JD
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-semibold truncate" style={{ color: "var(--text-1)", letterSpacing: "-0.014em" }}>
-              John Doe
-            </p>
-            <p className="text-[10px] truncate" style={{ color: "var(--text-3)" }}>
-              john@workspace.ai
-            </p>
-          </div>
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
         </div>
       </div>
     </div>
@@ -342,8 +358,13 @@ export default function AppShell({ children, title, subtitle, action }: AppShell
 
             {/* User avatar */}
             <div
-              className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold cursor-pointer flex-shrink-0"
+              onClick={() => {
+                localStorage.removeItem("theme");
+                router.push("/");
+              }}
+              className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold cursor-pointer flex-shrink-0 hover:opacity-85 transition-opacity"
               style={{ background: "linear-gradient(135deg, var(--indigo), var(--violet))" }}
+              title="Log out"
             >
               JD
             </div>
@@ -352,6 +373,31 @@ export default function AppShell({ children, title, subtitle, action }: AppShell
 
         {/* Scrollable page content */}
         <main className="flex-1 overflow-y-auto p-5 lg:p-6">
+
+          {/* ── Page Hero Header ── */}
+          <div className="mb-8">
+            <p
+              className="text-[11px] font-black uppercase tracking-[0.14em] mb-2"
+              style={{ color: "var(--indigo)" }}
+            >
+              <BlurText text={title} delay={60} />
+            </p>
+            <h2
+              className="text-3xl lg:text-4xl font-black"
+              style={{ color: "var(--text-1)", letterSpacing: "-0.038em", lineHeight: 1.1 }}
+            >
+              <BlurText text={title} delay={140} />
+            </h2>
+            {subtitle && (
+              <p
+                className="text-sm mt-2.5"
+                style={{ color: "var(--text-3)", letterSpacing: "-0.012em" }}
+              >
+                <BlurText text={subtitle} delay={80} />
+              </p>
+            )}
+          </div>
+
           {children}
         </main>
       </div>

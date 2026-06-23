@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import BlurText from "@/components/ui/BlurText";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -44,28 +45,40 @@ export default function LoginPage() {
           </div>
 
           <h2
-            className="text-xl font-bold"
-            style={{ color: "var(--text-1)", letterSpacing: "-0.028em" }}
+            className="text-3xl font-bold text-center"
+            style={{ letterSpacing: "-0.034em" }}
           >
-            Welcome back
+            <span
+              style={{
+                background: "linear-gradient(135deg, var(--indigo), var(--violet))",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+              }}
+            >
+              <BlurText text="Welcome back" delay={160} />
+            </span>
           </h2>
-          <p className="text-sm mt-1" style={{ color: "var(--text-2)" }}>
-            Sign in to your workspace
+          <p className="text-sm mt-1.5 text-center" style={{ color: "var(--text-2)" }}>
+            <BlurText text="Sign in to your workspace" delay={120} />
+          </p>
+          <p
+            className="text-xs mt-2 text-center font-medium"
+            style={{
+              background: "linear-gradient(90deg, var(--cyan), var(--violet))",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            <BlurText text="Your AI-powered knowledge assistant." delay={80} />
           </p>
         </div>
 
         {/* Glassmorphic form card with gradient border */}
-        <div
-          className="grad-border-subtle grad-border rounded-2xl"
-        >
-          <div
-            className="rounded-[15px] p-6 space-y-4"
-            style={{
-              background: "rgba(255,255,255,0.88)",
-              backdropFilter: "blur(24px)",
-              WebkitBackdropFilter: "blur(24px)",
-            }}
-          >
+        <div className="grad-border-subtle grad-border rounded-2xl">
+          <div className="glass-card rounded-[15px] p-6 space-y-4">
             {/* Email */}
             <div className="space-y-1.5">
               <label
