@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 
@@ -69,8 +69,9 @@ function RotatingText() {
   );
 }
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   
   // Auth state states
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -89,15 +90,35 @@ export default function LoginPage() {
   // Theme support
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
-  // Redirect authenticated users
+  // Show error passed back from /auth/callback (e.g. user cancelled Google login)
   useEffect(() => {
+    const urlError = searchParams.get("error");
+    if (urlError) {
+      setErrorMessage(decodeURIComponent(urlError));
+    }
+  }, [searchParams]);
+
+  // Redirect already-authenticated users and listen for OAuth session arrival
+  useEffect(() => {
+    // Immediate check — covers page refresh while logged in
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        router.push("/dashboard");
+        router.replace("/dashboard");
       }
     };
     checkAuth();
+
+    // Real-time listener — fires when the OAuth callback sets the session
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session) {
+          router.replace("/dashboard");
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, [router]);
 
   useEffect(() => {
@@ -192,10 +213,19 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: window.location.origin + "/dashboard",
+          // Redirect to the server-side callback route which exchanges the
+          // authorization code for a session, then forwards to /dashboard.
+          redirectTo: window.location.origin + "/auth/callback",
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
         }
       });
       if (error) throw error;
+      // Note: setGoogleLoading stays true here — the page will navigate away.
+      // If the user cancels, the /auth/callback route redirects back with ?error
+      // and the URL error useEffect above will reset loading via errorMessage.
     } catch (err) {
       const message = err instanceof Error ? err.message : "An error occurred starting Google OAuth.";
       setErrorMessage(message);
@@ -582,5 +612,17 @@ export default function LoginPage() {
       </div>
       
     </motion.div>
+  );
+}
+
+/**
+ * LoginPage wraps LoginContent in a Suspense boundary.
+ * This is required by Next.js App Router when a component uses useSearchParams().
+ */
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen w-full bg-[var(--bg)]" />}>
+      <LoginContent />
+    </Suspense>
   );
 }

@@ -268,51 +268,107 @@ export default function WelcomePage() {
     }, 200);
 
     try {
-      // 1. Upload to Supabase Storage bucket 'documents'
-      const storagePath = `uploads/${Date.now()}_${file.name}`;
-      const { error: storageError } = await supabase.storage
+      // ── DIAGNOSTIC STEP 0: Full session audit ──────────────────────────────
+      // Use getSession() NOT getUser().
+      // getUser() validates the JWT server-side but the STORAGE client uses the
+      // cached access_token from the session object. If they diverge, storage
+      // sends the request as `anon` even though getUser() returned a user.
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const session = sessionData?.session;
+      const user = session?.user ?? null;
+
+      console.group("[Upload Diagnostic]");
+      console.log("Session error:", sessionError?.message ?? "none");
+      console.log("Session exists:", !!session);
+      console.log("Access token present:", !!session?.access_token);
+      console.log("Access token preview:", session?.access_token?.slice(0, 40) + "...");
+      console.log("Token expires at:", session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : "N/A");
+      console.log("Token expired:", session?.expires_at ? Date.now() / 1000 > session.expires_at : "unknown");
+      console.log("Current User ID:", user?.id ?? "NULL — not authenticated");
+      console.log("User email:", user?.email ?? "N/A");
+      console.log("Bucket name:", "documents");
+      console.log("Upload path:", user ? `${user.id}/${file.name}` : "N/A");
+      console.log("File name:", file.name);
+      console.log("File size:", file.size);
+      console.groupEnd();
+
+      if (sessionError || !session || !user) {
+        clearInterval(progressInterval);
+        setDropped(null);
+        setProgress(0);
+        console.error("[Upload] Auth check failed. sessionError:", sessionError, "session:", session);
+        alert("Authentication error: You must be signed in to upload. Redirecting to sign in...");
+        router.push("/login");
+        return;
+      }
+
+      // If the token is about to expire, force a refresh before uploading
+      if (session.expires_at && Date.now() / 1000 > session.expires_at - 60) {
+        console.log("[Upload] Token near expiry, refreshing...");
+        const { error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError) console.warn("[Upload] Refresh failed:", refreshError.message);
+      }
+
+      // ── STEP 1: Storage upload ─────────────────────────────────────────────
+      const storagePath = `${user.id}/${file.name}`;
+      console.log("[Upload] Starting storage upload to:", `documents/${storagePath}`);
+
+      const { data: storageData, error: storageError } = await supabase.storage
         .from("documents")
         .upload(storagePath, file, {
           cacheControl: "3600",
-          upsert: false
+          upsert: true
         });
 
-      if (storageError) throw storageError;
+      // ── Full storage error dump ────────────────────────────────────────────
+      if (storageError) {
+        console.group("[Upload] Storage error — full dump");
+        console.error("error.message:", storageError.message);
+        console.error("error.name:", storageError.name);
+        console.error("error (full object):", JSON.stringify(storageError, null, 2));
+        console.groupEnd();
+        throw storageError;
+      }
 
-      // 2. Get uploaded file public URL
+      console.log("[Upload] Storage upload succeeded:", storageData);
+
+      // ── STEP 2: Get public URL ─────────────────────────────────────────────
       const { data: { publicUrl } } = supabase.storage
         .from("documents")
         .getPublicUrl(storagePath);
 
-      // 3. Save metadata into 'documents' table
+      // ── STEP 3: DB insert ─────────────────────────────────────────────────
+      console.log("[Upload] Inserting into documents table. user_id:", user.id);
       const { error: dbError } = await supabase
         .from("documents")
-        .insert([
-          {
-            title: file.name,
-            file_name: file.name,
-            file_url: publicUrl,
-            file_size: file.size,
-            created_at: new Date().toISOString()
-          }
-        ]);
+        .insert([{
+          user_id: user.id,
+          title: file.name,
+          file_name: file.name,
+          file_url: publicUrl,
+          file_size: file.size,
+          created_at: new Date().toISOString()
+        }]);
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error("[Upload] DB insert error:", JSON.stringify(dbError, null, 2));
+        throw dbError;
+      }
 
+      console.log("[Upload] DB insert succeeded.");
       clearInterval(progressInterval);
       setProgress(100);
 
-      // Redirect to dashboard page
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 1500);
+      setTimeout(() => { router.push("/dashboard"); }, 1500);
 
     } catch (err) {
       clearInterval(progressInterval);
-      console.error("Upload failed:", err);
+      console.error("[Upload] Final caught error:", err);
       setDropped(null);
       setProgress(0);
-      const errMsg = err && typeof err === "object" && "message" in err ? String((err as Record<string, unknown>).message) : String(err);
+      const errMsg = err && typeof err === "object" && "message" in err
+        ? String((err as Record<string, unknown>).message)
+        : String(err);
       alert("Upload failed: " + errMsg);
     }
   };

@@ -49,9 +49,14 @@ export default function DocumentsPage() {
       // Artificial delay of 1 second for loader visualization
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
+      // Get current user — required for user-scoped query
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const { data, error } = await supabase
         .from("documents")
         .select("*")
+        .eq("user_id", user.id)          // Only fetch this user's documents
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -90,47 +95,87 @@ export default function DocumentsPage() {
     }, 200);
 
     try {
-      // 1. Upload to Supabase Storage bucket 'documents'
-      const storagePath = `uploads/${Date.now()}_${file.name}`;
-      const { error: storageError } = await supabase.storage
+      // ── DIAGNOSTIC: Full session audit before storage upload ────────────────
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const session = sessionData?.session;
+      const user = session?.user ?? null;
+
+      console.group("[Documents Upload Diagnostic]");
+      console.log("Session error:", sessionError?.message ?? "none");
+      console.log("Session exists:", !!session);
+      console.log("Access token present:", !!session?.access_token);
+      console.log("Access token preview:", session?.access_token?.slice(0, 40) + "...");
+      console.log("Token expires at:", session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : "N/A");
+      console.log("Token expired:", session?.expires_at ? Date.now() / 1000 > session.expires_at : "unknown");
+      console.log("Current User ID:", user?.id ?? "NULL — not authenticated");
+      console.log("Bucket:", "documents");
+      console.log("Upload path:", user ? `${user.id}/${file.name}` : "N/A");
+      console.groupEnd();
+
+      if (sessionError || !session || !user) {
+        clearInterval(progressInterval);
+        setUploading(false);
+        setProgress(0);
+        console.error("[Documents Upload] Auth check failed:", sessionError);
+        alert("Authentication error: You must be signed in to upload. Redirecting...");
+        window.location.href = "/login";
+        return;
+      }
+
+      // Refresh token if near expiry
+      if (session.expires_at && Date.now() / 1000 > session.expires_at - 60) {
+        console.log("[Documents Upload] Token near expiry, refreshing...");
+        const { error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError) console.warn("[Documents Upload] Refresh failed:", refreshError.message);
+      }
+
+      // ── Storage upload ──────────────────────────────────────────────────
+      const storagePath = `${user.id}/${file.name}`;
+      console.log("[Documents Upload] Storage path:", storagePath);
+
+      const { data: storageData, error: storageError } = await supabase.storage
         .from("documents")
-        .upload(storagePath, file, {
-          cacheControl: "3600",
-          upsert: false
-        });
+        .upload(storagePath, file, { cacheControl: "3600", upsert: true });
 
-      if (storageError) throw storageError;
+      if (storageError) {
+        console.group("[Documents Upload] Storage error — full dump");
+        console.error("error.message:", storageError.message);
+        console.error("error.name:", storageError.name);
+        console.error("error (full object):", JSON.stringify(storageError, null, 2));
+        console.groupEnd();
+        throw storageError;
+      }
 
-      // 2. Get uploaded file public URL
+      console.log("[Documents Upload] Storage upload succeeded:", storageData);
+
+      // ── Public URL ────────────────────────────────────────────────────
       const { data: { publicUrl } } = supabase.storage
         .from("documents")
         .getPublicUrl(storagePath);
 
-      // 3. Save metadata into 'documents' table
+      // ── DB insert ──────────────────────────────────────────────────────
+      console.log("[Documents Upload] Inserting into documents table. user_id:", user.id);
       const { error: dbError } = await supabase
         .from("documents")
-        .insert([
-          {
-            title: file.name,
-            file_name: file.name,
-            file_url: publicUrl,
-            file_size: file.size,
-            created_at: new Date().toISOString()
-          }
-        ]);
+        .insert([{
+          user_id: user.id,
+          title: file.name,
+          file_name: file.name,
+          file_url: publicUrl,
+          file_size: file.size,
+          created_at: new Date().toISOString()
+        }]);
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error("[Documents Upload] DB insert error:", JSON.stringify(dbError, null, 2));
+        throw dbError;
+      }
 
+      console.log("[Documents Upload] DB insert succeeded.");
       clearInterval(progressInterval);
       setProgress(100);
-      
-      // Refresh documents
       await fetchDocs();
-
-      setTimeout(() => {
-        setUploading(false);
-        setProgress(0);
-      }, 1000);
+      setTimeout(() => { setUploading(false); setProgress(0); }, 1000);
 
     } catch (err) {
       clearInterval(progressInterval);
@@ -149,14 +194,26 @@ export default function DocumentsPage() {
     if (!confirm(`Are you sure you want to delete "${doc.file_name}"?`)) return;
 
     try {
-      // Parse storage path from public URL
-      const bucketMarker = "/documents/";
-      const markerIndex = doc.file_url.indexOf(bucketMarker);
+      // Get current user to verify ownership (RLS also enforces this server-side)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("You must be signed in to delete documents.");
+
+      // Reconstruct the user-scoped storage path: {user_id}/{filename}
+      // New uploads use this format. Legacy uploads fall back to URL parsing.
+      const legacyMarker = "/documents/";
+      const markerIndex = doc.file_url.indexOf(legacyMarker);
       let storagePath = "";
       if (markerIndex !== -1) {
-        storagePath = decodeURIComponent(doc.file_url.substring(markerIndex + bucketMarker.length));
+        const afterBucket = decodeURIComponent(doc.file_url.substring(markerIndex + legacyMarker.length));
+        // Check if the path already starts with the user's ID (new format)
+        if (afterBucket.startsWith(user.id + "/")) {
+          storagePath = afterBucket;
+        } else {
+          // Prefer reconstructing from user_id + filename for new-format files
+          storagePath = `${user.id}/${doc.file_name}`;
+        }
       } else {
-        storagePath = decodeURIComponent(doc.file_url.split("/").pop() || "");
+        storagePath = `${user.id}/${doc.file_name}`;
       }
 
       // 1. Delete from Supabase Storage
@@ -165,10 +222,12 @@ export default function DocumentsPage() {
       }
 
       // 2. Delete row from 'documents' table
+      // RLS ensures the user can only delete their own rows
       const { error: dbError } = await supabase
         .from("documents")
         .delete()
-        .eq("id", doc.id);
+        .eq("id", doc.id)
+        .eq("user_id", user.id); // extra safety filter
 
       if (dbError) throw dbError;
 

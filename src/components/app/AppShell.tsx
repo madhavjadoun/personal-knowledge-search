@@ -162,9 +162,14 @@ export default function AppShell({ children, title, subtitle, action }: AppShell
   useEffect(() => {
     const fetchCounts = async () => {
       try {
+        // Get current user so we only count their own documents
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
         const { data, error } = await supabase
           .from("documents")
-          .select("file_size");
+          .select("file_size")
+          .eq("user_id", user.id);   // only this user's documents
         if (!error && data) {
           setDocCount(data.length);
           const total = data.reduce((acc: number, d: { file_size: number }) => acc + (d.file_size || 0), 0);
@@ -217,12 +222,13 @@ export default function AppShell({ children, title, subtitle, action }: AppShell
   };
 
   const userEmail = user?.email || "";
-  const userName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
+  const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split("@")[0] || "User";
   const userInitials = userName.slice(0, 2).toUpperCase();
+  const userAvatar = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null;
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    router.push("/login");
+    router.push("/");
   };
 
   /* ── Sidebar content ── */
@@ -335,12 +341,22 @@ export default function AppShell({ children, title, subtitle, action }: AppShell
         {/* User row */}
         <div className="flex items-center justify-between px-1 py-1">
           <div className="flex items-center gap-2 min-w-0">
-            <div
-              className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, var(--indigo), var(--violet))" }}
-            >
-              {userInitials}
-            </div>
+            {userAvatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={userAvatar}
+                alt={userName}
+                className="h-7 w-7 rounded-lg object-cover flex-shrink-0"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div
+                className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
+                style={{ background: "linear-gradient(135deg, var(--indigo), var(--violet))" }}
+              >
+                {userInitials}
+              </div>
+            )}
             <div className="min-w-0">
               <p className="text-xs font-semibold truncate" style={{ color: "var(--text-1)", letterSpacing: "-0.014em" }}>
                 {userName}
@@ -456,15 +472,27 @@ export default function AppShell({ children, title, subtitle, action }: AppShell
               )}
             </button>
 
-            {/* User avatar */}
-            <div
-              onClick={handleSignOut}
-              className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold cursor-pointer flex-shrink-0 hover:opacity-85 transition-opacity"
-              style={{ background: "linear-gradient(135deg, var(--indigo), var(--violet))" }}
-              title="Log out"
-            >
-              {userInitials}
-            </div>
+            {/* User avatar / sign-out button */}
+            {userAvatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={userAvatar}
+                alt={userName}
+                onClick={handleSignOut}
+                className="h-7 w-7 rounded-lg object-cover cursor-pointer flex-shrink-0 hover:opacity-85 transition-opacity"
+                referrerPolicy="no-referrer"
+                title="Log out"
+              />
+            ) : (
+              <div
+                onClick={handleSignOut}
+                className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold cursor-pointer flex-shrink-0 hover:opacity-85 transition-opacity"
+                style={{ background: "linear-gradient(135deg, var(--indigo), var(--violet))" }}
+                title="Log out"
+              >
+                {userInitials}
+              </div>
+            )}
           </div>
         </header>
 

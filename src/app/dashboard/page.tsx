@@ -83,22 +83,28 @@ export default function DashboardPage() {
         // Artificial delay of 1 second for loader visualization
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
-        // 1. Fetch documents metadata
+        // 0. Resolve the currently authenticated user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return; // AppShell will redirect to /login if not authenticated
+
+        // 1. Fetch this user's documents metadata only
         const { data: dbDocs, error: docsError } = await supabase
           .from("documents")
           .select("file_name, file_size, created_at")
+          .eq("user_id", user.id)         // isolate to this user
           .order("created_at", { ascending: false });
 
         if (docsError) throw docsError;
         const documents = dbDocs || [];
         setHasDocs(documents.length > 0);
 
-        // 2. Fetch chunks count
+        // 2. Fetch this user's chunk count only
         let chunkCount = 0;
         try {
           const { count, error } = await supabase
             .from("chunks")
-            .select("*", { count: "exact", head: true });
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", user.id);     // isolate to this user
           if (!error && count !== null) {
             chunkCount = count;
           }
