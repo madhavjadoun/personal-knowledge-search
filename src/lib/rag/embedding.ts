@@ -5,6 +5,14 @@
 
 const queryEmbeddingCache = new Map<string, number[]>();
 
+function setCacheWithEviction(key: string, value: number[]): void {
+  if (queryEmbeddingCache.size >= 500) {
+    const firstKey = queryEmbeddingCache.keys().next().value;
+    if (firstKey !== undefined) queryEmbeddingCache.delete(firstKey);
+  }
+  queryEmbeddingCache.set(key, value);
+}
+
 export async function generateEmbedding(text: string): Promise<number[]> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -33,7 +41,8 @@ export async function generateEmbedding(text: string): Promise<number[]> {
       content: {
         parts: [{ text: cleanText }],
       },
-      outputDimensionality: 768
+      outputDimensionality: 768,
+      taskType: "RETRIEVAL_QUERY"
     }),
   });
 
@@ -50,7 +59,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
   }
 
   // Cache result
-  queryEmbeddingCache.set(cleanText, values);
+  setCacheWithEviction(cleanText, values);
   return values;
 }
 
@@ -69,7 +78,7 @@ export async function generateEmbeddingsBatch(texts: string[]): Promise<number[]
 
   // Identify indices needing API calls (filter out empty texts and check cache)
   const pendingIndices: number[] = [];
-  const pendingRequests: { model: string; content: { parts: { text: string }[] } }[] = [];
+  const pendingRequests: { model: string; content: { parts: { text: string }[] }; outputDimensionality: number; taskType: string }[] = [];
 
   for (let i = 0; i < cleanTexts.length; i++) {
     const text = cleanTexts[i];
@@ -84,6 +93,8 @@ export async function generateEmbeddingsBatch(texts: string[]): Promise<number[]
         content: {
           parts: [{ text }],
         },
+        outputDimensionality: 768,
+        taskType: "RETRIEVAL_DOCUMENT",
       });
     }
   }
@@ -131,7 +142,7 @@ export async function generateEmbeddingsBatch(texts: string[]): Promise<number[]
       const originalIndex = chunkIndices[i];
       const text = cleanTexts[originalIndex];
 
-      queryEmbeddingCache.set(text, values);
+      setCacheWithEviction(text, values);
       results[originalIndex] = values;
     }
   }

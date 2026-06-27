@@ -8,17 +8,23 @@ import { stripMetadata } from "./chunk";
 export function getTopKLimit(intent: Intent): number {
   switch (intent) {
     case "QUESTION_LOOKUP":
-      return 2;
+      return 3;
     case "TOPIC_SEARCH":
-      return 8;
+      return 10;
     case "SUMMARY":
-      return 20;
+      return 50;
     case "EXPLANATION":
       return 10;
     case "MCQ_GENERATION":
-      return 6;
+      return 8;
+    case "LIST":
+      return 2000;
+    case "COUNT":
+      return 2000;
+    case "COMPARE":
+      return 10;
     default:
-      return 5;
+      return 8;
   }
 }
 
@@ -35,9 +41,17 @@ export function buildContext(
 } {
   const topK = getTopKLimit(intent);
 
-  // 1. Deduplicate nearly identical chunks using Jaccard similarity (>0.85)
+  // 1. Deduplicate exact chunk IDs first
+  const seenIds = new Set<string>();
+  const idDeduplicated = candidates.filter((c) => {
+    if (seenIds.has(c.id)) return false;
+    seenIds.add(c.id);
+    return true;
+  });
+
+  // 2. Deduplicate nearly identical chunks using Jaccard similarity (>0.85)
   const uniqueCandidates: HybridCandidate[] = [];
-  for (const cand of candidates) {
+  for (const cand of idDeduplicated) {
     let isDuplicate = false;
     const cleanCandContent = stripMetadata(cand.content);
 
@@ -62,19 +76,24 @@ export function buildContext(
     }
   }
 
-  // 2. Select top K candidates
+  // 3. Select top K candidates
   const topCandidates = uniqueCandidates.slice(0, topK);
 
-  // 3. Sort by: Similarity (Score) descending, then Page Number ascending, then Chunk Index ascending
-  topCandidates.sort((a, b) => {
-    if (b.similarity !== a.similarity) {
-      return b.similarity - a.similarity;
-    }
-    if (a.page_number !== b.page_number) {
-      return a.page_number - b.page_number;
-    }
-    return a.chunk_index - b.chunk_index;
-  });
+  const documentOrderIntents: Intent[] = ["SUMMARY", "LIST", "COUNT"];
+  if (documentOrderIntents.includes(intent)) {
+    topCandidates.sort((a, b) => {
+      if (a.page_number !== b.page_number) return a.page_number - b.page_number;
+      if (a.chunk_index !== b.chunk_index) return a.chunk_index - b.chunk_index;
+      return a.id.localeCompare(b.id);
+    });
+  } else {
+    topCandidates.sort((a, b) => {
+      if (b.similarity !== a.similarity) return b.similarity - a.similarity;
+      if (a.page_number !== b.page_number) return a.page_number - b.page_number;
+      if (a.chunk_index !== b.chunk_index) return a.chunk_index - b.chunk_index;
+      return a.id.localeCompare(b.id);
+    });
+  }
 
   // 4. Merge consecutive/overlapping chunks on the same page to clean up context
   const pageGroups: Record<number, HybridCandidate[]> = {};
@@ -91,8 +110,11 @@ export function buildContext(
 
   for (const page of sortedPages) {
     const pageChunks = pageGroups[page];
-    // Sort page chunks chronologically by chunk index
-    pageChunks.sort((a, b) => a.chunk_index - b.chunk_index);
+    // Sort page chunks chronologically by chunk index with deterministic fallback
+    pageChunks.sort((a, b) => {
+      if (a.chunk_index !== b.chunk_index) return a.chunk_index - b.chunk_index;
+      return a.id.localeCompare(b.id);
+    });
 
     const mergedPageContent = pageChunks
       .map((c) => stripMetadata(c.content).trim())

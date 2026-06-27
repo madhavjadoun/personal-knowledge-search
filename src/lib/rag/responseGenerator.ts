@@ -36,6 +36,14 @@ Explanation: [Explanation explaining why using the context]`;
 Generate a structured, detailed summary containing all key facts, definitions, formulas, or topics mentioned ONLY using the provided context.
 If the information is not present, reply exactly: "I couldn't find this information in the uploaded document."
 Never hallucinate or use external knowledge.`;
+  } else if (intent === "LIST") {
+    systemInstruction = `You are an AI assistant.
+Extract and list EVERY question, problem, or task mentioned in the provided document context.
+Do not skip any. Number them sequentially starting from 1.
+Include the full question text for each entry.
+If a question has sub-parts, list them under the parent question.
+Do not summarize or paraphrase — copy the question text exactly as it appears.
+If the answer is not present in the context, reply: "I couldn't find this information in the uploaded document."`;
   }
 
   return provider.generateText(userPrompt, systemInstruction);

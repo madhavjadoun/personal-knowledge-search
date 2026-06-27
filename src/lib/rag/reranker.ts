@@ -38,8 +38,13 @@ export function rerankCandidates(
     };
   });
 
-  // Sort by composite rerankScore descending
-  reranked.sort((a, b) => b.rerankScore - a.rerankScore);
+  // Sort by composite rerankScore descending with stable fallback tie-breakers
+  reranked.sort((a, b) => {
+    if (b.rerankScore !== a.rerankScore) return b.rerankScore - a.rerankScore;
+    if (a.page_number !== b.page_number) return a.page_number - b.page_number;
+    if (a.chunk_index !== b.chunk_index) return a.chunk_index - b.chunk_index;
+    return a.id.localeCompare(b.id);
+  });
 
   return reranked;
 }

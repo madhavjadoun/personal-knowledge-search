@@ -139,15 +139,7 @@ export class OllamaProvider implements AIProvider {
     const contextText = retrievedChunks.map((c) => `[Page ${c.page_number}]:\n${c.content}`).join("\n\n");
     const userPrompt = `Context:\n${contextText}\n\nQuestion:\n${question}`;
     
-    const finalSystemInstruction = `You are a document intelligence assistant.
-Answer ONLY using the provided document context.
-Never hallucinate.
-If the answer is not found in the provided context, explicitly say:
-"I couldn't find this information in the uploaded document."
-For document-level requests:
-Return complete information.
-Never truncate the response unnecessarily.
-If the response becomes too long, structure it using headings and bullet points.`;
+    const finalSystemInstruction = `Answer only using the context below. If the answer is not in the context, say: "I couldn't find this information in the uploaded document." Do not invent facts.`;
 
     return this.generateText(userPrompt, finalSystemInstruction);
   }

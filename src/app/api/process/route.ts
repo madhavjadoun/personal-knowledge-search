@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 import { parsePDF } from "@/lib/rag/parser";
 import { chunkDocument, stripMetadata } from "@/lib/rag/chunk";
 import { generateEmbedding, generateEmbeddingsBatch } from "@/lib/rag/embedding";
+import { buildQuestionIndex } from "@/lib/rag/documentIndexer";
+import { getAIProvider } from "@/lib/rag/aiProvider";
 
 export async function POST(request: Request) {
   const startTime = Date.now();
@@ -85,6 +87,38 @@ export async function POST(request: Request) {
 
     console.log("Processing document_id:", docData.id);
 
+    const pageTexts = parseResult.pageTexts;
+    const fileName = docData.file_name;
+    const provider = getAIProvider();
+
+    // Build LLM question index for this document
+    console.log("[Indexer] Building question index for:", fileName);
+    const questionIndex = await buildQuestionIndex(
+      pageTexts, 
+      provider, 
+      documentId, 
+      fileName
+    );
+    
+    if (questionIndex.length > 0) {
+      // Delete old index for this document first (for reindex case)
+      await supabaseClient
+        .from("question_index")
+        .delete()
+        .eq("document_id", documentId);
+      
+      // Insert new index
+      const { error: indexError } = await supabaseClient
+        .from("question_index")
+        .insert(questionIndex);
+      
+      if (indexError) {
+        console.warn("[Indexer] Failed to save question index:", indexError);
+      } else {
+        console.log(`[Indexer] Saved ${questionIndex.length} entries to question_index`);
+      }
+    }
+
     // Split parsed text into semantic chunks
     console.log(`[RAG Pipeline] Chunking document: ${docData.id}`);
     const chunks = chunkDocument(parseResult.pageTexts, docData.file_name);
@@ -111,6 +145,11 @@ export async function POST(request: Request) {
       }
     }
 
+    // Sanitize embeddings — NaN/Infinity are not valid JSON and cause
+    // "invalid input syntax for type json" errors in Postgres
+    const sanitizeEmbedding = (emb: number[]): number[] =>
+      emb.map((v) => (Number.isFinite(v) ? v : 0));
+
     // Persist new chunks populated with their embedding directly in a single query
     const chunksToInsert = chunks.map((chunk, index) => ({
       document_id: docData.id,
@@ -118,22 +157,32 @@ export async function POST(request: Request) {
       page_number: chunk.pageNumber,
       chunk_index: chunk.chunkIndex,
       content: chunk.content,
-      embedding: embeddings[index] && embeddings[index].length > 0 ? embeddings[index] : null,
-      created_at: new Date().toISOString()
+      embedding:
+        embeddings[index] && embeddings[index].length > 0
+          ? sanitizeEmbedding(embeddings[index])
+          : null,
+      created_at: new Date().toISOString(),
     }));
 
-    console.log(`[RAG Pipeline] Storing ${chunksToInsert.length} chunks with embeddings directly...`);
-    const { error: insertError } = await supabaseClient
-      .from("chunks")
-      .insert(chunksToInsert);
+    console.log(`[RAG Pipeline] Storing ${chunksToInsert.length} chunks with embeddings in batches...`);
 
-    if (insertError) {
-      console.error("[RAG Pipeline] Error persisting chunks:", insertError);
-      return NextResponse.json(
-        { error: `Failed to persist chunks: ${insertError.message}` },
-        { status: 500 }
-      );
+    // Insert in batches of 50 to avoid request payload size limits
+    const INSERT_BATCH_SIZE = 50;
+    for (let offset = 0; offset < chunksToInsert.length; offset += INSERT_BATCH_SIZE) {
+      const batch = chunksToInsert.slice(offset, offset + INSERT_BATCH_SIZE);
+      const { error: insertError } = await supabaseClient
+        .from("chunks")
+        .insert(batch);
+
+      if (insertError) {
+        console.error("[RAG Pipeline] Error persisting chunks batch:", insertError);
+        return NextResponse.json(
+          { error: `Failed to persist chunks: ${insertError.message}` },
+          { status: 500 }
+        );
+      }
     }
+
 
     console.log("Chunk count inserted:", chunksToInsert.length);
     const successCount = embeddings.filter(emb => emb && emb.length > 0).length;

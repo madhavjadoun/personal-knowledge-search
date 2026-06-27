@@ -306,12 +306,22 @@ export default function DocumentsPage() {
         storagePath = `${user.id}/${doc.file_name}`;
       }
 
-      // 1. Delete from Supabase Storage
+      // 1. Delete all chunks belonging to this document (prevent orphan data)
+      const { error: chunkDeleteError } = await supabase
+        .from("chunks")
+        .delete()
+        .eq("document_id", doc.id);
+
+      if (chunkDeleteError) {
+        console.warn("Failed to delete chunks (may have CASCADE):", chunkDeleteError);
+      }
+
+      // 2. Delete from Supabase Storage
       if (storagePath) {
         await supabase.storage.from("documents").remove([storagePath]);
       }
 
-      // 2. Delete row from 'documents' table
+      // 3. Delete row from 'documents' table
       // RLS ensures the user can only delete their own rows
       const { error: dbError } = await supabase
         .from("documents")
@@ -321,7 +331,7 @@ export default function DocumentsPage() {
 
       if (dbError) throw dbError;
 
-      // 3. Refresh list
+      // 4. Refresh list
       await fetchDocs();
     } catch (err) {
       console.error("Delete failed:", err);

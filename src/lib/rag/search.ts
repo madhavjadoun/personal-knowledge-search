@@ -25,7 +25,7 @@ export async function vectorSearch(
   question: string,
   options: SearchOptions = {}
 ): Promise<SearchResult[]> {
-  const { documentId, threshold = 0.3, limit = 5 } = options;
+  const { documentId, threshold = 0.5, limit = 5 } = options;
 
   // 1. Generate embedding vector for the search query
   console.log(`[RAG Search] Generating embedding for question: "${question}"`);

@@ -1,6 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { vectorSearch } from "./search";
-import { Intent } from "./intentClassifier";
+import { extractQuestionNumber } from "./queryNormalizer";
+import { classifyIntent } from "./intentClassifier";
 
 export interface HybridCandidate {
   id: string;
@@ -14,22 +15,48 @@ export interface HybridCandidate {
 }
 
 /**
- * Performs a hybrid search combining Vector pgvector matches and direct Postgres Full Text/Wildcard keyword matching.
- * Bypasses vector embeddings entirely for specific QUESTION_LOOKUP queries using direct frontmatter metadata queries.
+ * Performs search combining metadata lookup bypass for question numbers
+ * and single vector search + keyword boosting for everything else.
+ * 
+ * No multi-query. No intent dependency for metadata bypass. One embedding call max.
  */
 export async function hybridSearch(
   supabaseClient: SupabaseClient,
   query: string,
-  rewrites: string[],
-  intent: Intent,
   documentId?: string
 ): Promise<HybridCandidate[]> {
-  // 1. Bypass Vector Search if it's a specific QUESTION_LOOKUP with a question number
-  const qNumMatch = query.match(/\b(?:question|problem|q|no\.?)\s*(\d+)\b/i);
-  const qNumber = qNumMatch ? qNumMatch[1] : null;
+  // For LIST queries on large documents, fetch all chunks sorted by page/chunk order
+  const intent = classifyIntent(query);
+  if (intent === "LIST" || intent === "COUNT") {
+    let listQuery = supabaseClient
+      .from("chunks")
+      .select("id, document_id, page_number, chunk_index, content")
+      .order("page_number", { ascending: true })
+      .order("chunk_index", { ascending: true });
+    if (documentId) {
+      listQuery = listQuery.eq("document_id", documentId);
+    }
+    const { data: allChunks, error } = await listQuery.limit(2000);
+    if (!error && allChunks && allChunks.length > 0) {
+      console.log(`[RAG Search] LIST/COUNT mode: fetched ${allChunks.length} chunks in document order.`);
+      return allChunks.map((c) => ({
+        id: c.id,
+        document_id: c.document_id,
+        page_number: c.page_number,
+        chunk_index: c.chunk_index,
+        content: c.content,
+        similarity: 1.0,
+        keywordScore: 1.0,
+        combinedScore: 1.0,
+      }));
+    }
+  }
 
-  if (intent === "QUESTION_LOOKUP" && qNumber) {
-    console.log(`[RAG Search] Question lookup detected for Question ${qNumber}. Bypassing vector search and using direct metadata matching.`);
+  // 1. Check for question number — bypass vector search entirely if found
+  const qNumber = extractQuestionNumber(query);
+
+  if (qNumber) {
+    console.log(`[RAG Search] Question number ${qNumber} detected. Attempting direct metadata lookup.`);
     
     let metaQuery = supabaseClient
       .from("chunks")
@@ -40,76 +67,63 @@ export async function hybridSearch(
       metaQuery = metaQuery.eq("document_id", documentId);
     }
 
-    const { data: matchedChunks, error } = await metaQuery.limit(20);
+    const { data: matchedChunks, error } = await metaQuery.limit(10);
     if (!error && matchedChunks && matchedChunks.length > 0) {
+      console.log(`[RAG Search] Metadata match found: ${matchedChunks.length} chunks for Question ${qNumber}.`);
       return matchedChunks.map((c) => ({
         id: c.id,
         document_id: c.document_id,
         page_number: c.page_number,
         chunk_index: c.chunk_index,
         content: c.content,
-        similarity: 1.0, // High constant similarity since it is a direct metadata match
+        similarity: 1.0,
         keywordScore: 1.0,
         combinedScore: 1.0,
       }));
     }
+    // If metadata match fails, fall through to vector search
+    console.log(`[RAG Search] No metadata match for Question ${qNumber}. Falling back to vector search.`);
   }
 
-  // 2. Otherwise, perform Hybrid Retrieval (Multi-Query Vector Search + Keyword wildcards)
+  // 2. Single vector search (one embedding call)
   const candidateMap = new Map<string, HybridCandidate>();
 
-  // 2a. Multi-Query Vector Search in parallel
-  console.log(`[RAG Search] Running multi-query vector searches for ${rewrites.length} variants concurrently...`);
-  const searchPromises = rewrites.map(async (rewrite) => {
-    try {
-      return await vectorSearch(supabaseClient, rewrite, {
-        documentId,
-        threshold: 0.15, // Retrieve lower threshold candidates to let reranking filter
-        limit: 20,
-      });
-    } catch (err) {
-      console.warn(`[RAG Search] Vector search failed for query rewrite "${rewrite}":`, err);
-      return [];
-    }
-  });
+  console.log(`[RAG Search] Running single vector search for: "${query}"`);
+  try {
+    const results = await vectorSearch(supabaseClient, query, {
+      documentId,
+      threshold: 0.5,
+      limit: 20,
+    });
 
-  const allResults = await Promise.all(searchPromises);
-
-  for (const results of allResults) {
     for (const res of results) {
-      const existing = candidateMap.get(res.id);
-      if (existing) {
-        // Keep the highest similarity score matched across the variations
-        existing.similarity = Math.max(existing.similarity, res.similarity);
-      } else {
-        candidateMap.set(res.id, {
-          id: res.id,
-          document_id: res.document_id,
-          page_number: res.page_number,
-          chunk_index: res.chunk_index,
-          content: res.content,
-          similarity: res.similarity,
-          keywordScore: 0,
-          combinedScore: 0,
-        });
-      }
+      candidateMap.set(res.id, {
+        id: res.id,
+        document_id: res.document_id,
+        page_number: res.page_number,
+        chunk_index: res.chunk_index,
+        content: res.content,
+        similarity: res.similarity,
+        keywordScore: 0,
+        combinedScore: 0,
+      });
     }
+  } catch (err) {
+    console.warn(`[RAG Search] Vector search failed:`, err);
   }
 
-  // 2b. Postgres Full-Text/Wildcard keyword matching
+  // 3. Keyword matching to supplement vector results
   const keywords = extractKeywords(query);
   if (keywords.length > 0) {
+    const tsQuery = keywords.join(' | ');
     let kwQuery = supabaseClient
       .from("chunks")
-      .select("id, document_id, page_number, chunk_index, content");
-
+      .select("id, document_id, page_number, chunk_index, content")
+      .textSearch("content_tsv", tsQuery, { type: "websearch", config: "english" });
     if (documentId) {
       kwQuery = kwQuery.eq("document_id", documentId);
     }
-
-    // Match any chunks containing any keyword
-    const filterStr = keywords.map((kw) => `content.ilike.%${kw}%`).join(",");
-    const { data: keywordChunks, error } = await kwQuery.or(filterStr).limit(30);
+    const { data: keywordChunks, error } = await kwQuery.limit(30);
 
     if (!error && keywordChunks) {
       for (const kc of keywordChunks) {
@@ -118,7 +132,6 @@ export async function hybridSearch(
         if (existing) {
           existing.keywordScore = keywordScore;
         } else {
-          // Estimate similarity score for keyword-only matches
           const estimatedSim = 0.2 + keywordScore * 0.3;
           candidateMap.set(kc.id, {
             id: kc.id,
@@ -135,18 +148,22 @@ export async function hybridSearch(
     }
   }
 
-  // 2c. Combined Weighted Score: 70% Semantic Vector Similarity + 30% Keyword Score
+  // 4. Combined score: 70% semantic + 30% keyword
   const candidates = Array.from(candidateMap.values());
   for (const c of candidates) {
-    // If not found in keyword search, compute overlap score dynamically
     if (c.keywordScore === 0) {
       c.keywordScore = getKeywordOverlapScore(c.content, keywords);
     }
     c.combinedScore = 0.7 * c.similarity + 0.3 * c.keywordScore;
   }
 
-  // Sort candidates by combined score descending
-  candidates.sort((a, b) => b.combinedScore - a.combinedScore);
+  // Sort by combined score descending with stable fallback tie-breakers
+  candidates.sort((a, b) => {
+    if (b.combinedScore !== a.combinedScore) return b.combinedScore - a.combinedScore;
+    if (a.page_number !== b.page_number) return a.page_number - b.page_number;
+    if (a.chunk_index !== b.chunk_index) return a.chunk_index - b.chunk_index;
+    return a.id.localeCompare(b.id);
+  });
   return candidates;
 }
 

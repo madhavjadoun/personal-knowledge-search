@@ -2,11 +2,12 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { getAIProvider } from "./aiProvider";
 import { normalizeQuery } from "./queryNormalizer";
 import { classifyIntent, Intent } from "./intentClassifier";
-import { expandQueryAndRewrites } from "./queryExpansion";
 import { hybridSearch } from "./hybridSearch";
-import { rerankCandidates } from "./reranker";
 import { buildContext } from "./contextBuilder";
 import { generateFinalAnswer } from "./responseGenerator";
+import { rerankCandidates } from "./reranker";
+import { extractKeywords } from "./adaptiveRetrieval";
+import { expandQueryAndRewrites } from "./queryExpansion";
 
 export interface RetrievalResponse {
   success: boolean;
@@ -30,7 +31,14 @@ export interface RetrievalResponse {
 }
 
 /**
- * Orchestrates the complete production-grade RAG retrieval and answer generation pipeline.
+ * Orchestrates the RAG retrieval and answer generation pipeline.
+ * 
+ * Simplified pipeline:
+ * 1. Normalize query (deterministic)
+ * 2. Classify intent (deterministic heuristics, no LLM)
+ * 3. Search (metadata bypass for question numbers, single vector search otherwise)
+ * 4. Build context (deduplicate, TopK, merge)
+ * 5. Generate answer (single LLM call)
  */
 export async function retrieveAndGenerate(
   supabaseClient: SupabaseClient,
@@ -56,34 +64,91 @@ export async function retrieveAndGenerate(
     console.warn("[RAG Search Pipeline] Failed to query total chunks count:", countErr);
   }
 
-  // 2. Query Preprocessing (Normalization)
+  // 2. Query Preprocessing (Normalization — deterministic)
   const normalizedQuery = normalizeQuery(question);
 
-  // 3. Query Understanding (Intent Classification)
-  const intent = await classifyIntent(normalizedQuery, provider);
+  // 3. Intent Classification (deterministic heuristics — no LLM call)
+  const intent = classifyIntent(normalizedQuery);
 
-  // 4. Multi-Query Retrieval & Expansion
-  const rewrites = await expandQueryAndRewrites(normalizedQuery, provider);
+  if (intent === "COUNT" || intent === "LIST") {
+    // Try to answer directly from question_index — no vector search needed
+    let indexQuery = supabaseClient
+      .from("question_index")
+      .select("number, title, style, approximate_page")
+      .order("approximate_page", { ascending: true });
+    
+    if (documentId) {
+      indexQuery = indexQuery.eq("document_id", documentId);
+    }
+    
+    const { data: indexEntries, error: indexError } = await indexQuery;
+    
+    if (!indexError && indexEntries && indexEntries.length > 0) {
+      console.log(`[RAG] Answering ${intent} from question_index: ${indexEntries.length} entries`);
+      
+      const indexText = indexEntries
+        .map((e, i) => `${i + 1}. [${e.style}] #${e.number}: ${e.title} (page ~${e.approximate_page})`)
+        .join("\n");
+      
+      const indexPrompt = intent === "COUNT"
+        ? `The document contains exactly ${indexEntries.length} questions/sections:\n\n${indexText}\n\nQuestion: ${question}`
+        : `Here are all ${indexEntries.length} questions/sections in the document:\n\n${indexText}\n\nQuestion: ${question}`;
+      
+      const systemMsg = intent === "COUNT"
+        ? "You are an AI assistant. Answer the count question using the provided index. State the exact number clearly."
+        : "You are an AI assistant. List all items from the provided index. Do not skip any. Number them 1 to N.";
+      
+      const { text: answer, promptTokens } = await provider.generateText(indexPrompt, systemMsg);
+      
+      const endTime = Date.now();
+      return {
+        success: true,
+        answer,
+        sources: [],
+        provider: provider.name,
+        intent,
+        metrics: {
+          totalChunks, retrievedChunksCount: 0,
+          removedDuplicatesCount: 0, mergedChunksCount: 0,
+          finalContextTokens: Math.ceil(indexText.length / 4.2),
+          geminiInputTokens: promptTokens,
+          executionTimeMs: endTime - startTime,
+        },
+      };
+    }
+    // If question_index is empty (old document not reindexed), fall through to normal search
+    console.log("[RAG] question_index empty, falling back to vector search");
+  }
 
-  // 5. Hybrid Search (Vector similarity + Wildcard Postgres matches + Metadata lookup bypass)
+  const searchQuery = normalizedQuery;
+
+  // 4. Search (metadata bypass for question numbers, single vector search otherwise)
   const candidates = await hybridSearch(
     supabaseClient,
-    normalizedQuery,
-    rewrites,
-    intent,
+    searchQuery,
     documentId
   );
 
   const retrievedChunksCount = candidates.length;
 
-  // 6. Reranking (Lexical phrase + score alignment)
-  const keywords = normalizedQuery.split(/\s+/).filter((w) => w.length > 2);
+  const keywords = extractKeywords(normalizedQuery);
   const reranked = rerankCandidates(candidates, normalizedQuery, keywords);
 
-  // 7. Context Builder (Deduplication, dynamic Top-K, page sorting & text merging)
+  // 5. Context Builder (Deduplication, dynamic Top-K, page sorting & text merging)
   const { finalChunks, contextText } = buildContext(reranked, intent);
 
-  // 8. Strict Context Answer Generation
+  // Log retrieval audit information
+  console.log(`[RAG Retrieval Audit]
+Normalized Query: "${normalizedQuery}"
+Intent: ${intent}
+Top-K: ${finalChunks.length}
+Similarity Threshold: 0.5
+Retrieved Chunk IDs: [${finalChunks.map(c => c.id).join(", ")}]
+Retrieved Pages: [${finalChunks.map(c => c.page_number).join(", ")}]
+Similarity Scores: [${finalChunks.map(c => c.similarity.toFixed(4)).join(", ")}]
+Final Context Size: ${contextText.length} characters`);
+
+  // 6. Strict Context Answer Generation (single LLM call)
   const { text: answer, promptTokens: geminiInputTokens } = await generateFinalAnswer(
     question,
     contextText,
