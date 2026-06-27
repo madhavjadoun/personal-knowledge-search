@@ -14,11 +14,6 @@ interface SupabaseDoc {
   created_at: string;
 }
 
-interface SearchTestResult {
-  page_number: number;
-  similarity: number;
-  content: string;
-}
 
 /* Color config per extension */
 const EXT_STYLE: Record<string, { bg: string; color: string }> = {
@@ -47,43 +42,6 @@ export default function DocumentsPage() {
   const [uploadName, setUploadName] = useState("");
   const [progress, setProgress] = useState(0);
 
-  const [searchQuestion, setSearchQuestion] = useState("");
-  const [searchDocId, setSearchDocId] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchAnswer, setSearchAnswer] = useState("");
-  const [searchSources, setSearchSources] = useState<SearchTestResult[]>([]);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const [showDeveloperPanel, setShowDeveloperPanel] = useState(false);
-  const [activeProvider, setActiveProvider] = useState("Gemini");
-
-  // Sync latest document ID to searchDocId if searchDocId is currently empty or stale
-  useEffect(() => {
-    if (docs.length > 0) {
-      const docExists = docs.some(d => d.id === searchDocId);
-      if (!docExists) {
-        setSearchDocId(docs[0].id);
-      }
-    } else {
-      setSearchDocId("");
-    }
-  }, [docs, searchDocId]);
-
-  // Log selected document ID when it changes (temporary developer log)
-  useEffect(() => {
-    console.log("Selected document_id:", searchDocId || "none");
-  }, [searchDocId]);
-
-  // Retrieve active provider configuration on mount
-  useEffect(() => {
-    fetch("/api/search")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.provider) {
-          setActiveProvider(data.provider);
-        }
-      })
-      .catch((err) => console.error("Failed to fetch active AI provider:", err));
-  }, []);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -256,15 +214,14 @@ export default function DocumentsPage() {
             errMsg = String(errObj.error);
           }
         } catch {}
-        throw new Error(errMsg || `RAG processing failed with status: ${processResponse.status}`);
+        throw new Error(errMsg || `Document processing failed with status: ${processResponse.status}`);
       }
 
-      console.log("[Documents Upload] RAG processing complete.");
+      console.log("[Documents Upload] Document processing complete.");
 
       clearInterval(progressInterval);
       setProgress(100);
       await fetchDocs();
-      setSearchDocId(documentId);
       setTimeout(() => { setUploading(false); setProgress(0); }, 1000);
 
     } catch (err) {
@@ -340,47 +297,6 @@ export default function DocumentsPage() {
     }
   };
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuestion.trim()) return;
-
-    setIsSearching(true);
-    setSearchError(null);
-    setSearchAnswer("");
-    setSearchSources([]);
-
-    try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !sessionData?.session) {
-        throw new Error("Failed to retrieve user session. Please try logging in again.");
-      }
-
-      const response = await fetch("/api/search", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${sessionData.session.access_token}`,
-        },
-        body: JSON.stringify({
-          question: searchQuestion,
-          documentId: searchDocId || undefined,
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || `Search failed with status: ${response.status}`);
-      }
-
-      setSearchAnswer(data.answer || "");
-      setSearchSources(data.sources || []);
-    } catch (err) {
-      console.error("[RAG Search Test] Error:", err);
-      setSearchError(err instanceof Error ? err.message : "An unknown error occurred during search");
-    } finally {
-      setIsSearching(false);
-    }
-  };
 
   const readyCount = docs.length;
   const totalStorage = docs.reduce((s, d) => s + d.file_size, 0);
@@ -580,14 +496,6 @@ export default function DocumentsPage() {
                         >
                           Ask AI
                         </Link>
-                        <span className="text-[var(--border)]">·</span>
-
-                        <button
-                          onClick={() => alert("Reindexing document...")}
-                          className="hover:text-[var(--text-1)] transition-colors cursor-pointer"
-                        >
-                          Reindex
-                        </button>
                       </div>
 
                       {/* Delete icon */}
@@ -608,217 +516,6 @@ export default function DocumentsPage() {
           )}
         </div>
 
-        {/* RAG Search Test Section (Temporary Developer Tool) */}
-        <div className="glass-card rounded-xl overflow-hidden border border-dashed border-zinc-500/50 p-5 mt-6 bg-[var(--bg-2)]/20">
-          <div className="flex items-center justify-between border-b border-[var(--border)] pb-3 mb-4">
-            <div>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--indigo)] flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[var(--indigo)] animate-pulse" />
-                RAG Search Test (Developer Tool)
-              </h3>
-              <p className="text-[12px] text-[var(--text-4)] mt-0.5">
-                Directly query the vector database using pgvector.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-zinc-500/10 text-[var(--text-3)] border border-[var(--border)]">
-                Provider: {activeProvider}
-              </span>
-              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-[var(--indigo)] border border-indigo-500/20">
-                Temporary Panel
-              </span>
-            </div>
-          </div>
-
-          <form onSubmit={handleSearch} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2 space-y-1.5">
-                <label className="text-xs font-semibold text-[var(--text-3)]" htmlFor="rag-question">
-                  Question *
-                </label>
-                <input
-                  id="rag-question"
-                  type="text"
-                  placeholder="Enter your test question here..."
-                  value={searchQuestion}
-                  onChange={(e) => setSearchQuestion(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--border)] bg-[var(--bg-2)] text-[var(--text-1)] focus:outline-none focus:border-[var(--indigo)] transition-colors"
-                  required
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-[var(--text-3)]" htmlFor="rag-doc-id">
-                  Current Document
-                </label>
-                <select
-                  id="rag-doc-id"
-                  value={searchDocId}
-                  onChange={(e) => setSearchDocId(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--border)] bg-[var(--bg-2)] text-[var(--text-1)] focus:outline-none focus:border-[var(--indigo)] transition-colors"
-                >
-                  <option value="">All Documents</option>
-                  {docs.map((doc) => (
-                    <option key={doc.id} value={doc.id}>
-                      {doc.file_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                type="submit"
-                disabled={isSearching || !searchQuestion.trim()}
-                className="grad-btn px-4 py-2 rounded-lg text-sm font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
-              >
-                {isSearching ? (
-                  <>
-                    <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Searching Vector Index...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    Search Chunks
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-
-          {/* Search Error banner */}
-          {searchError && (
-            <div className="mt-4 p-3 rounded-lg border border-red-500/20 bg-red-500/5 text-red-500 text-xs font-medium">
-              Error querying retrieval API: {searchError}
-            </div>
-          )}
-
-          {/* Search Results */}
-          {!isSearching && searchAnswer && (
-            <div className="mt-6 space-y-5 border-t border-[var(--border)] pt-5">
-              {/* AI Answer Card */}
-              <div className="glass-card p-5 bg-[var(--bg-2)]/40 rounded-xl space-y-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-md flex items-center justify-center bg-[var(--indigo)] text-white">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 21l8.904-4.452M18 10.5V18a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18V6a2.25 2.25 0 012.25-2.25h9.75m1.5 0v3m0-3h3m-3 9h.008v.008H18.75V12" />
-                    </svg>
-                  </div>
-                  <h4 className="text-sm font-bold text-[var(--text-1)]">
-                    AI Answer
-                  </h4>
-                </div>
-                <p className="text-[14px] text-[var(--text-2)] leading-relaxed whitespace-pre-wrap">
-                  {searchAnswer}
-                </p>
-              </div>
-
-              {/* Sources */}
-              {searchSources.length > 0 && (
-                <div className="space-y-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-3)] block">
-                    Sources
-                  </span>
-                  <div className="flex flex-wrap gap-2">
-                    {searchSources.map((source, idx) => (
-                      <span
-                        key={idx}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-[var(--bg-2)] text-[var(--text-2)] border border-[var(--border)]"
-                      >
-                        <span className="text-[var(--text-4)]">Page</span>
-                        <strong className="font-mono text-[var(--text-1)]">{source.page_number}</strong>
-                        <span className="text-[var(--border)]">|</span>
-                        <span className="text-[var(--text-4)]">Similarity:</span>
-                        <span className="font-mono text-[var(--indigo)]">{(source.similarity * 100).toFixed(0)}%</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Retrieved Chunks (collapsible developer section) */}
-              <div className="border border-[var(--border)] rounded-xl overflow-hidden bg-[var(--bg-3)]/10">
-                <button
-                  type="button"
-                  onClick={() => setShowDeveloperPanel(!showDeveloperPanel)}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-[var(--bg-2)]/30 hover:bg-[var(--bg-2)]/60 text-xs font-semibold text-[var(--text-3)] transition-colors cursor-pointer"
-                >
-                  <span className="flex items-center gap-2">
-                    <svg className="w-3.5 h-3.5 text-[var(--text-4)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
-                    </svg>
-                    Retrieved Chunks (Developer Diagnostics)
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <span className="px-1.5 py-0.5 rounded bg-[var(--bg-3)] border border-[var(--border)] text-[10px] font-mono">
-                      {searchSources.length} Chunks
-                    </span>
-                    <svg
-                      className={`w-3.5 h-3.5 transform transition-transform duration-200 ${showDeveloperPanel ? "rotate-180" : ""}`}
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2.5}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                    </svg>
-                  </span>
-                </button>
-
-                {showDeveloperPanel && (
-                  <div className="p-4 border-t border-[var(--border)] bg-[var(--bg-2)]/10 space-y-3">
-                    {searchSources.map((result, idx) => (
-                      <div
-                        key={idx}
-                        className="p-4 rounded-xl border border-[var(--border)] bg-[var(--bg-2)]/40 hover:bg-[var(--bg-2)]/60 transition-all space-y-2.5"
-                      >
-                        <div className="flex items-center justify-between text-xs font-semibold">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[var(--text-4)]">Page:</span>
-                            <span className="px-1.5 py-0.5 rounded bg-[var(--bg-3)] text-[var(--text-2)] border border-[var(--border)] font-mono">
-                              {result.page_number}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[var(--text-4)]">Similarity:</span>
-                            <span
-                              className={`px-1.5 py-0.5 rounded font-mono border ${
-                                result.similarity > 0.7
-                                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                                  : result.similarity > 0.4
-                                  ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
-                                  : "bg-zinc-500/10 text-[var(--text-3)] border-[var(--border)]"
-                              }`}
-                            >
-                              {(result.similarity * 100).toFixed(1)}%
-                            </span>
-                          </div>
-                        </div>
-                        <p className="text-[13px] text-[var(--text-2)] leading-relaxed bg-[var(--bg-1)] p-3 rounded-lg border border-[var(--border)] font-mono whitespace-pre-wrap max-h-[160px] overflow-y-auto">
-                          {result.content}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Empty state search results */}
-          {!isSearching && !searchAnswer && searchQuestion.trim() && !searchError && (
-            <div className="mt-4 text-center py-6 border border-dashed border-[var(--border)] rounded-lg text-xs text-[var(--text-4)]">
-              No results returned. Try another question or check if embeddings are generated.
-            </div>
-          )}
-        </div>
       </div>
     </AppShell>
   );
