@@ -210,7 +210,7 @@ export function detectAnswerStyle(query: string): AnswerStyle {
   }
 
   // 2. COMPARE
-  if (/\b(compare|contrast|difference between|versus|vs\.?)\b/.test(q)) {
+  if (/\b(compare|contrast|difference[s]?|differ[s]?|differentiate|distinguish|versus|vs\.?)\b/.test(q)) {
     return "COMPARE";
   }
 
@@ -259,7 +259,7 @@ const STYLE_RULES: Record<AnswerStyle, string> = {
 - **Key Points**: A bulleted list of the main supporting ideas or details found in the context.
 - **Conclusion**: A concise concluding sentence wrapping up the explanation.`,
   LIST: `You must format your response as a clean bullet-point list. Collect every unique item, concept, topic, or algorithm found across all retrieved chunks, remove duplicates, sort them naturally, and present them clearly.`,
-  COMPARE: `You must format your response as a valid Markdown comparison table whenever possible. Define appropriate columns and rows based on the properties and differences found in the context.`,
+  COMPARE: `You MUST format your response as a valid Markdown comparison table. Do NOT use paragraphs or bullet points — a table is REQUIRED. Use one column per item being compared and one row per property or criterion found in the context. Every row must have a | separator between cells, a proper header row, and a separator row of dashes (e.g. |---|---|). Only include rows where the context provides data for at least one column.`,
   STEP_BY_STEP: `You must format your response using logical numbered steps explaining the process in order.`,
   CALCULATION: `You must show calculations and mathematical formulas ONLY if they explicitly exist in the retrieved context. Do not invent or assume any equations.`,
   SUMMARY: `You must generate a concise document summary from ALL retrieved chunks. Ensure you cover every major concept, topic, or finding across all retrieved excerpts. Do not focus only on the highest-ranked chunk.`,
@@ -270,7 +270,7 @@ const STYLE_HINT_MAP: Record<AnswerStyle, string> = {
   FACT: "(answer as direct factual paragraphs)",
   EXPLAIN: "(answer as a structured explanation: Definition, Key Points, Conclusion)",
   LIST: "(answer as a sorted bullet-point list of unique items)",
-  COMPARE: "(answer as a valid Markdown comparison table)",
+  COMPARE: "(REQUIRED FORMAT: a valid Markdown table with header row, separator row of dashes, and one column per item — no paragraphs, no bullets)",
   STEP_BY_STEP: "(answer as a step-by-step numbered list)",
   CALCULATION: "(answer showing formulas only if present in context)",
   SUMMARY: "(answer as a concise document summary of retrieved chunks)",

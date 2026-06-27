@@ -19,5 +19,5 @@ export { createLLMProvider } from "./providers";
 export type { LLMProvider, AnswerEngineError } from "./providers";
 
 // ── Sprint 5.2: Answer Generator ─────────────────────────────────────────────
-export { generateAnswer } from "./answerGenerator";
+export { generateAnswer, GROUNDING_FAIL_MESSAGE } from "./answerGenerator";
 export type { AnswerResult } from "./answerGenerator";

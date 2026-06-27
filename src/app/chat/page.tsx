@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import AppShell from "@/components/app/AppShell";
 import OrbitLoader from "@/components/app/OrbitLoader";
+import { renderMarkdown, MARKDOWN_CSS } from "@/utils/markdownRenderer";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -45,6 +46,7 @@ interface Msg {
   promptMetrics?: PromptMetrics;
   retrieval?: RetrievalMeta;
   chunks?: ChunkPreview[];
+  sourcePages?: number[];
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -104,9 +106,15 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Msg[]>(INIT);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
+  const [loadingPhase, setLoadingPhase] = useState<"searching" | "analyzing" | "generating" | null>(null);
   const [expandedChunks, setExpandedChunks] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const [sessionId, setSessionId] = useState("");
+  useEffect(() => {
+    setSessionId(crypto.randomUUID());
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -130,6 +138,11 @@ export default function ChatPage() {
     setInput("");
     setThinking(true);
 
+    // Cycle through meaningful loading phases
+    setLoadingPhase("searching");
+    const t1 = setTimeout(() => setLoadingPhase("analyzing"), 800);
+    const t2 = setTimeout(() => setLoadingPhase("generating"), 1800);
+
     const userMsg: Msg = { id: crypto.randomUUID(), role: "user", text };
     setMessages((prev) => [...prev, userMsg]);
 
@@ -151,7 +164,7 @@ export default function ChatPage() {
       const res = await fetch("/api/answer", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeader },
-        body: JSON.stringify({ query: text, topK: 5, similarityThreshold: 0.3 }),
+        body: JSON.stringify({ query: text, topK: 5, similarityThreshold: 0.3, sessionId }),
       });
 
       const data = await res.json();
@@ -179,6 +192,7 @@ export default function ChatPage() {
             promptMetrics: data.promptMetrics,
             retrieval: data.retrieval,
             chunks: data.chunks,
+            sourcePages: (data.sourcePages as number[]) ?? undefined,
           },
         ]);
       }
@@ -194,6 +208,9 @@ export default function ChatPage() {
       ]);
       console.error("[Chat] fetch error:", err);
     } finally {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      setLoadingPhase(null);
       setThinking(false);
       inputRef.current?.focus();
     }
@@ -223,7 +240,7 @@ export default function ChatPage() {
       action={
         <button
           id="chat-reset-btn"
-          onClick={() => { setMessages(INIT); setExpandedChunks(new Set()); }}
+          onClick={() => { setMessages(INIT); setExpandedChunks(new Set()); setSessionId(crypto.randomUUID()); }}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border border-[var(--border)] hover:bg-[var(--bg-2)] transition-colors text-[var(--text-2)] cursor-pointer"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -324,9 +341,15 @@ export default function ChatPage() {
                   <div className="flex-1 min-w-0 space-y-2">
 
                     {/* ── PART 1: AI Answer (always first) ── */}
-                    <div className={`chat-ai-bubble px-4 py-3 text-[16px] leading-[1.7] ${m.error ? "text-red-400" : "text-[var(--text-2)]"} whitespace-pre-wrap`}>
-                      {m.text}
-                    </div>
+                    <style>{MARKDOWN_CSS}</style>
+                    <div
+                      className={`chat-ai-bubble px-4 py-3 text-[16px] leading-[1.7] ${m.error ? "text-red-400" : ""}`}
+                      {...(m.error
+                        ? { children: m.text }
+                        : {
+                            dangerouslySetInnerHTML: { __html: renderMarkdown(m.text) },
+                          })}
+                    />
 
                     {/* ── PART 2: Pipeline metrics row ── */}
                     {!m.error && (m.retrieval || m.promptMetrics) && (
@@ -345,7 +368,21 @@ export default function ChatPage() {
                       </div>
                     )}
 
-                    {/* ── PART 3: Retrieved chunks (collapsible, below answer) ── */}
+                    {/* ── PART 3: Source pages attribution ── */}
+                    {!m.error && m.sourcePages && m.sourcePages.length > 0 && (
+                      <div className="px-1">
+                        <p className="text-[11px] font-semibold text-[var(--text-4)]">
+                          {m.sourcePages.length === 1
+                            ? `📄 Source: Page ${m.sourcePages[0]}`
+                            : (m.sourcePages[m.sourcePages.length - 1] - m.sourcePages[0] === m.sourcePages.length - 1)
+                              ? `📄 Source: Pages ${m.sourcePages[0]}–${m.sourcePages[m.sourcePages.length - 1]}`
+                              : `📄 Sources: Pages ${m.sourcePages.join(", ")}`
+                          }
+                        </p>
+                      </div>
+                    )}
+
+                    {/* ── PART 4: Retrieved chunks (collapsible, below answer) ── */}
                     {!m.error && m.chunks && m.chunks.length > 0 && (
                       <div className="mt-1">
                         <button
@@ -404,10 +441,25 @@ export default function ChatPage() {
                 <div className="chat-ai-bubble flex items-center gap-3 px-4 py-3 text-sm text-[var(--text-2)]">
                   <OrbitLoader size={20} />
                   <div>
-                    <p className="font-semibold text-[var(--text-1)]">Generating answer</p>
-                    <p className="text-[13px] font-medium text-[var(--text-4)]">
-                      Retrieving context → building prompt → Qwen2.5…
+                    <p className="font-semibold text-[var(--text-1)]">
+                      {loadingPhase === "searching"  && "Searching document…"}
+                      {loadingPhase === "analyzing"  && "Analyzing retrieved context…"}
+                      {loadingPhase === "generating" && "Generating answer…"}
+                      {!loadingPhase && "Generating answer…"}
                     </p>
+                    <div className="flex gap-1 mt-1.5">
+                      <span className={`h-0.5 w-6 rounded-full transition-all duration-500 ${
+                        loadingPhase === "searching" || loadingPhase === "analyzing" || loadingPhase === "generating"
+                          ? "bg-[var(--indigo)]" : "bg-[var(--border)]"
+                      }`} />
+                      <span className={`h-0.5 w-6 rounded-full transition-all duration-500 ${
+                        loadingPhase === "analyzing" || loadingPhase === "generating"
+                          ? "bg-[var(--indigo)]" : "bg-[var(--border)]"
+                      }`} />
+                      <span className={`h-0.5 w-6 rounded-full transition-all duration-500 ${
+                        loadingPhase === "generating" ? "bg-[var(--indigo)]" : "bg-[var(--border)]"
+                      }`} />
+                    </div>
                   </div>
                 </div>
               </div>

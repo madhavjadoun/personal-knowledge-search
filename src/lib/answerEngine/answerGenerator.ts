@@ -35,89 +35,178 @@ export interface AnswerResult {
 
 // ── Confidence Helper ─────────────────────────────────────────────────────────
 
+/**
+ * Weighted multi-signal confidence model.
+ *
+ * Signal weights:
+ *   max similarity       35 %  — strength of the single best match
+ *   average similarity   25 %  — consistency of all retrieved evidence
+ *   chunk count          20 %  — breadth of supporting context (diminishing)
+ *   context coverage     20 %  — total characters of grounding material
+ *
+ * Thresholds (composite 0-1 score):
+ *   >= 0.72  → High
+ *   >= 0.45  → Medium
+ *    < 0.45  → Low
+ */
 function calculateAnswerConfidence(
   answer: string,
-  chunks: PromptChunk[]
+  chunks: PromptChunk[],
+  contextCharacters?: number
 ): "High" | "Medium" | "Low" {
-  // 1. If LLM replies with exact grounding check (unable to find answer), force Low confidence
+  // Grounding-fail → always Low regardless of retrieval scores
   if (
-    answer.includes("I could not find a confident answer") ||
-    answer.trim() === "I could not find a confident answer in the provided context."
+    answer.includes("I couldn't find enough information") ||
+    answer.includes("I could not find a confident answer")
   ) {
     return "Low";
   }
 
   const chunkCount = chunks.length;
-  if (chunkCount === 0) {
-    return "Low";
-  }
+  if (chunkCount === 0) return "Low";
 
-  // Extract cosine similarities
   const scores = chunks.map((c) => c.similarityScore);
-  const maxScore = Math.max(...scores);
-  const sumScores = scores.reduce((sum, s) => sum + s, 0);
-  const avgScore = sumScores / chunkCount;
+  const maxScore  = Math.max(...scores);
+  const avgScore  = scores.reduce((s, x) => s + x, 0) / chunkCount;
 
-  // 2. High Confidence Criteria:
-  //    - Strong top match (max score >= 0.65 similarity)
-  //    - Multiple supporting chunks (>= 2 unique chunks)
-  //    - Consistent evidence (average similarity >= 0.50)
-  if (maxScore >= 0.65 && chunkCount >= 2 && avgScore >= 0.50) {
-    return "High";
-  }
+  // Chunk count signal: saturates at 5 chunks (score 1.0)
+  const chunkSignal = Math.min(chunkCount / 5, 1.0);
 
-  // 3. Medium Confidence Criteria:
-  //    - Partial evidence: top match is at least 0.45 similarity
-  if (maxScore >= 0.45) {
-    return "Medium";
-  }
+  // Context coverage signal: saturates at 4 000 characters
+  const ctxChars = contextCharacters ?? 0;
+  const ctxSignal = Math.min(ctxChars / 4000, 1.0);
 
-  // 4. Low Confidence Criteria:
-  //    - Weak retrieval or incomplete evidence
+  const composite =
+    maxScore   * 0.35 +
+    avgScore   * 0.25 +
+    chunkSignal * 0.20 +
+    ctxSignal  * 0.20;
+
+  if (composite >= 0.72) return "High";
+  if (composite >= 0.45) return "Medium";
   return "Low";
 }
 
+// ── Friendly grounding-fail message ──────────────────────────────────────────
+
+export const GROUNDING_FAIL_MESSAGE =
+  "I couldn't find enough information in the selected document to answer this confidently.\n\n" +
+  "Try:\n" +
+  "- Rephrasing your question\n" +
+  "- Increasing Top K\n" +
+  "- Selecting another document";
+
 // ── Post-processing clean helper ──────────────────────────────────────────────
+
+/**
+ * Sentence fingerprint for near-duplicate detection.
+ * Lowercases, strips punctuation and extra spaces, returns a compact string.
+ */
+function sentenceFingerprint(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 function cleanResponse(text: string): string {
   let cleaned = text;
 
-  // Handle PDF summarization block query directly (fallback check)
+  // Pass-through: system-generated special messages
   if (cleaned.includes("Full document summarization is not available")) {
     return cleaned;
   }
 
-  // 1. Remove raw LaTeX math escapes/wrappers
-  cleaned = cleaned.replace(/\\\(|\\\)/g, ""); // remove \( and \)
-  cleaned = cleaned.replace(/\\\[|\\\]/g, ""); // remove \[ and \]
-  cleaned = cleaned.replace(/\\text\{([^}]+)\}/g, "$1"); // remove \text{...}
-  cleaned = cleaned.replace(/\\mathrm\{([^}]+)\}/g, "$1"); // remove \mathrm{...}
+  // 1. Substitute generic grounding-fail sentinel → friendly message
+  if (
+    cleaned.includes("I could not find a confident answer") ||
+    cleaned.trim() === "I could not find a confident answer in the provided context."
+  ) {
+    return GROUNDING_FAIL_MESSAGE;
+  }
 
-  // 2. Clean broken bullet/list formatting artifacts
-  cleaned = cleaned.replace(/^\s*[\*\-\+]\s*[\*\-\+]\s+/gm, "* "); // replace nested bullet marks "* *" with "* "
-  cleaned = cleaned.replace(/^\s*\d+\.\s*\d+\.\s+/gm, "1. "); // replace nested numbering marks "1. 1. " with "1. "
+  // 2. Remove escaped LaTeX / markdown characters
+  cleaned = cleaned.replace(/\\\(|\\\)/g, "");          // \( \)
+  cleaned = cleaned.replace(/\\\[|\\\]/g, "");          // \[ \]
+  cleaned = cleaned.replace(/\\\*/g, "");               // \*
+  cleaned = cleaned.replace(/\\_/g, "");                // \_
+  cleaned = cleaned.replace(/\\`/g, "");                // \`
+  cleaned = cleaned.replace(/\\text\{([^}]+)\}/g, "$1");   // \text{...}
+  cleaned = cleaned.replace(/\\mathrm\{([^}]+)\}/g, "$1"); // \mathrm{...}
+  cleaned = cleaned.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "$1/$2"); // \frac{a}{b} → a/b
 
-  // 3. Deduplicate repeated consecutive paragraphs/lines
+  // 3. Fix broken bullet / numbered-list artifacts
+  cleaned = cleaned.replace(/^\s*[\*\-\+]\s*[\*\-\+]\s+/gm, "- "); // "* *" → "- "
+  cleaned = cleaned.replace(/^\s*\d+\.\s*\d+\.\s+/gm, "1. ");       // "1. 1. " → "1. "
+
+  // 4. Deduplicate by sentence fingerprint (not just consecutive-line exact match)
   const lines = cleaned.split("\n");
+  const seenFingerprints = new Set<string>();
   const uniqueLines: string[] = [];
+
   for (const line of lines) {
     const trimmed = line.trim();
-    if (trimmed === "") {
-      uniqueLines.push("");
+
+    // Always preserve blank lines and structural markdown
+    if (
+      trimmed === "" ||
+      trimmed.startsWith("#") ||
+      trimmed.startsWith("|") ||
+      trimmed.startsWith("-") ||
+      trimmed.startsWith("*") ||
+      /^\d+\./.test(trimmed)
+    ) {
+      uniqueLines.push(line);
       continue;
     }
-    // Skip exact duplicate consecutive lines
-    if (uniqueLines.length > 0 && uniqueLines[uniqueLines.length - 1].trim() === trimmed) {
-      continue;
+
+    const fp = sentenceFingerprint(trimmed);
+    if (fp.length < 10 || !seenFingerprints.has(fp)) {
+      seenFingerprints.add(fp);
+      uniqueLines.push(line);
     }
-    uniqueLines.push(line);
+    // else: silently drop near-duplicate sentence
   }
+
   cleaned = uniqueLines.join("\n");
 
-  // 4. Clean up extra blank lines (limit multiple newlines to max double newline)
+  // 5. Trim trailing whitespace from each line
+  cleaned = cleaned
+    .split("\n")
+    .map((l) => l.trimEnd())
+    .join("\n");
+
+  // 6. Collapse 3+ consecutive blank lines to max 2
   cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
 
-  return cleaned.trim();
+  cleaned = cleaned.trim();
+
+  // 7. Off-context admission detector — PERMANENT FIX
+  //
+  // Small LLMs (e.g. qwen2.5:3b) often answer from training knowledge while
+  // simultaneously admitting the retrieved context doesn't contain the answer.
+  // We detect these admission phrases and replace the entire response with the
+  // grounding-fail message.  This works regardless of similarity thresholds.
+  const OFF_CONTEXT_PATTERNS: RegExp[] = [
+    /the (retrieved |provided |given )?context (provided |given )?(does not|doesn'?t) (contain|have|include|address|cover|provide)/i,
+    /the (document|pdf|passage|text|material|content) (provided |given )?(does not|doesn'?t) (contain|have|include|mention|discuss|address)/i,
+    /not (directly|specifically|explicitly) (mentioned|stated|covered|found|addressed|available|included) in the (context|document|pdf|provided|retrieved)/i,
+    /the context (does not|doesn'?t) (specifically |directly )?(mention|address|cover|include|contain|discuss)/i,
+    /based on (general|my|broader|common|background) knowledge/i,
+    /while (this |it |the topic )?(is not|isn'?t) (directly|explicitly|specifically) (mentioned|covered|addressed|found) in the (context|document|pdf)/i,
+    /(I|we) (don'?t|do not|cannot|can'?t) find (this|that|specific|any) information (about|regarding|on) .{0,60} in the (context|document|selected|provided)/i,
+    /the (selected|provided|given|uploaded) (document|pdf|file) (does not|doesn'?t|may not) (contain|have|include|address)/i,
+    /no (specific|direct|relevant|explicit) (information|data|content|reference|mention) (about|on|regarding) .{0,60} (is available|found|exists) in the (context|document|pdf)/i,
+  ];
+
+  for (const pattern of OFF_CONTEXT_PATTERNS) {
+    if (pattern.test(cleaned)) {
+      return GROUNDING_FAIL_MESSAGE;
+    }
+  }
+
+  return cleaned;
 }
 
 // ── informational metrics unique facts count helper ──────────────────────────
@@ -125,6 +214,7 @@ function cleanResponse(text: string): string {
 function estimateUniqueFacts(answer: string): number {
   const normalized = answer.trim();
   if (
+    normalized.includes("I couldn't find enough information") ||
     normalized.includes("I could not find a confident answer") ||
     normalized.includes("Full document summarization is not available") ||
     normalized.length === 0
@@ -169,7 +259,8 @@ function estimateUniqueFacts(answer: string): number {
 export async function generateAnswer(
   query: string,
   retrievedChunks: PromptChunk[],
-  retrievalMeta?: RetrievalMeta
+  retrievalMeta?: RetrievalMeta,
+  hasDocumentFilter?: boolean
 ): Promise<AnswerResult> {
   const style = detectAnswerStyle(query);
 
@@ -217,6 +308,36 @@ export async function generateAnswer(
     };
   }
 
+  // ── Out-of-domain guard (pre-flight similarity check) ────────────────────────
+  //
+  // Two-tier threshold:
+  //   • Specific document selected (hasDocumentFilter=true): 0.50
+  //     The user is asking about a particular PDF — we must be confident
+  //     the content is actually IN that document before calling the LLM.
+  //   • All documents (hasDocumentFilter=false/undefined): 0.40
+  //     Broader search — slightly more lenient.
+  const domainCheckMaxSim =
+    retrievedChunks.length > 0
+      ? Math.max(...retrievedChunks.map((c) => c.similarityScore))
+      : 0;
+  const WEAK_SIGNAL_THRESHOLD = hasDocumentFilter ? 0.50 : 0.40;
+
+  if (domainCheckMaxSim < WEAK_SIGNAL_THRESHOLD) {
+    console.log(
+      `[AnswerEngine] Out-of-domain guard — max sim ${domainCheckMaxSim.toFixed(4)} < ${WEAK_SIGNAL_THRESHOLD} (filter=${!!hasDocumentFilter}), skipping LLM`
+    );
+    return {
+      answer: GROUNDING_FAIL_MESSAGE,
+      prompt: { systemPrompt: "", context: "", userPrompt: "", fullPrompt: "", tokenEstimate: 0, contextCharacters: 0 },
+      promptMetrics: { promptCharacters: 0, tokenEstimate: 0, contextCharacters: 0, chunksIncluded: retrievedChunks.length },
+      model: "local",
+      provider: "system",
+      generationTimeMs: 0,
+      confidence: "Low",
+      answerStyle: style,
+    };
+  }
+
   // ── 1. Get provider (validates env vars, never bypasses factory) ────────────
   let llmProvider;
   try {
@@ -261,7 +382,11 @@ export async function generateAnswer(
   const finalAnswer = cleanResponse(rawAnswer);
 
   // ── 6. Compute metrics & confidence ────────────────────────────────────────
-  const confidence = calculateAnswerConfidence(finalAnswer, retrievedChunks);
+  const confidence = calculateAnswerConfidence(
+    finalAnswer,
+    retrievedChunks,
+    prompt.contextCharacters
+  );
   const uniqueFacts = estimateUniqueFacts(finalAnswer);
 
   // ── 7. Post-generation audit logs ──────────────────────────────────────────

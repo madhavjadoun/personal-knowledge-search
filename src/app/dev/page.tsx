@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { renderMarkdown, MARKDOWN_CSS } from "@/utils/markdownRenderer";
+
 
 interface SupabaseDoc {
   id: string;
@@ -115,6 +117,15 @@ export default function DevPage() {
   const [aiGenerationMs, setAiGenerationMs] = useState<number | null>(null);
   const [aiModel, setAiModel] = useState<string | null>(null);
   const [aiConfidence, setAiConfidence] = useState<string | null>(null);
+  const [aiSourcePages, setAiSourcePages] = useState<number[] | null>(null);
+
+  // Loading phase state for multi-step UX
+  const [loadingPhase, setLoadingPhase] = useState<"searching" | "analyzing" | "generating" | null>(null);
+
+  const [sessionId, setSessionId] = useState("");
+  useEffect(() => {
+    setSessionId(crypto.randomUUID());
+  }, []);
 
   // UI state
   const [searchQuery, setSearchQuery] = useState("");
@@ -458,6 +469,12 @@ export default function DevPage() {
     setAiGenerationMs(null);
     setAiModel(null);
     setAiConfidence(null);
+    setAiSourcePages(null);
+
+    // Cycle through meaningful loading phases while the single HTTP call is in flight
+    setLoadingPhase("searching");
+    const t1 = setTimeout(() => setLoadingPhase("analyzing"), 700);
+    const t2 = setTimeout(() => setLoadingPhase("generating"), 1600);
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -475,6 +492,7 @@ export default function DevPage() {
           topK: retrievalTopK,
           similarityThreshold: retrievalThreshold,
           filterDocumentId: retrievalDocId || undefined,
+          sessionId,
         }),
       });
 
@@ -489,6 +507,7 @@ export default function DevPage() {
       setAiGenerationMs(data.generationTimeMs ?? null);
       setAiModel(data.model ?? null);
       setAiConfidence(data.retrieval?.confidence ?? null);
+      setAiSourcePages((data.sourcePages as number[]) ?? null);
 
       // Reconstruct a RetrievalResult-compatible shape from the answer response
       const retrieval = data.retrieval || {};
@@ -527,6 +546,9 @@ export default function DevPage() {
     } catch (err) {
       setRetrievalError(err instanceof Error ? err.message : "Search failed.");
     } finally {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      setLoadingPhase(null);
       setRetrievalLoading(false);
     }
   };
@@ -1020,7 +1042,7 @@ export default function DevPage() {
                 disabled={retrievalLoading || !retrievalQuery.trim()}
                 className="px-5 py-2 text-sm font-bold rounded bg-violet-600 hover:bg-violet-700 text-white disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors"
               >
-                {retrievalLoading ? "Searching…" : "🔍 Search"}
+                {retrievalLoading ? "⏳ Searching…" : "🔍 Search"}
               </button>
             </div>
           </div>
@@ -1028,6 +1050,36 @@ export default function DevPage() {
           {retrievalError && (
             <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-xs font-medium">
               {retrievalError}
+            </div>
+          )}
+
+          {/* ── 3-phase loading indicator ── */}
+          {retrievalLoading && loadingPhase && (
+            <div className="mt-4 flex items-center gap-3 p-4 bg-violet-50 border border-violet-200 rounded-xl">
+              <svg className="w-4 h-4 animate-spin text-violet-500 flex-shrink-0" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <div>
+                <p className="text-xs font-bold text-violet-700">
+                  {loadingPhase === "searching"  && "Searching document…"}
+                  {loadingPhase === "analyzing"  && "Analyzing retrieved context…"}
+                  {loadingPhase === "generating" && "Generating answer…"}
+                </p>
+                <div className="flex gap-1 mt-1">
+                  <span className={`h-1 w-8 rounded-full transition-all duration-500 ${
+                    loadingPhase === "searching" || loadingPhase === "analyzing" || loadingPhase === "generating"
+                      ? "bg-violet-500" : "bg-violet-200"
+                  }`} />
+                  <span className={`h-1 w-8 rounded-full transition-all duration-500 ${
+                    loadingPhase === "analyzing" || loadingPhase === "generating"
+                      ? "bg-violet-500" : "bg-violet-200"
+                  }`} />
+                  <span className={`h-1 w-8 rounded-full transition-all duration-500 ${
+                    loadingPhase === "generating" ? "bg-violet-500" : "bg-violet-200"
+                  }`} />
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -1039,6 +1091,7 @@ export default function DevPage() {
             {/* ── AI ANSWER BOX (appears first, above retrieval cards) ── */}
             {aiAnswer && (
               <div className="border-2 border-emerald-400 rounded-xl bg-emerald-50/60 p-5">
+                <style>{MARKDOWN_CSS}</style>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-bold text-emerald-800 flex items-center gap-2">
                     🤖 AI Answer
@@ -1057,9 +1110,23 @@ export default function DevPage() {
                     {aiGenerationMs !== null && <span>⚡ {aiGenerationMs}ms</span>}
                   </div>
                 </div>
-                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                  {aiAnswer}
-                </p>
+                <div
+                  className="text-sm text-slate-700 leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(aiAnswer!) }}
+                />
+                {/* Source pages attribution */}
+                {aiSourcePages && aiSourcePages.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-emerald-200">
+                    <p className="text-[11px] font-semibold text-emerald-700">
+                      {aiSourcePages.length === 1
+                        ? `📄 Source: Page ${aiSourcePages[0]}`
+                        : aiSourcePages.length === 2 || (aiSourcePages[aiSourcePages.length - 1] - aiSourcePages[0] === aiSourcePages.length - 1)
+                          ? `📄 Source: Pages ${aiSourcePages[0]}–${aiSourcePages[aiSourcePages.length - 1]}`
+                          : `📄 Sources: Pages ${aiSourcePages.join(", ")}`
+                      }
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 

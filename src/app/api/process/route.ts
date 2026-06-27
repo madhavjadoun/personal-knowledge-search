@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { processDocument } from "@/lib/documentProcessor";
 
+import { chunkDocument } from "@/lib/chunkingEngine";
+import { generateDocumentIntelligence } from "@/lib/documentIntelligence";
+
 export async function POST(request: Request) {
   const startTime = Date.now();
 
@@ -63,8 +66,50 @@ export async function POST(request: Request) {
 
     const arrayBuffer = await fileData.arrayBuffer();
 
-    // Call document processing layer
+    // 1. Call PDF parser / document processing layer
     const result = await processDocument(arrayBuffer);
+
+    // 2. Perform chunking internally for stats & document intelligence
+    const chunksResult = chunkDocument(result, documentId, {
+      maxChunkCharacters: 500,
+      overlapCharacters: 50,
+    });
+
+    // 3. Fetch document title
+    const { data: docData } = await supabaseClient
+      .from("documents")
+      .select("title")
+      .eq("id", documentId)
+      .single();
+    const docTitle = docData?.title || storagePath.split("/").pop() || "Document";
+
+    // 4. Generate Document Intelligence
+    const localChunks = chunksResult.chunks.map((c: any) => ({
+      pageStart: c.pageStart,
+      pageEnd: c.pageEnd,
+      text: c.text,
+    }));
+    const intel = await generateDocumentIntelligence(documentId, docTitle, result, localChunks);
+
+    // 5. Store intelligence JSON separately in Supabase Storage
+    const { error: uploadError } = await supabaseClient.storage
+      .from("documents")
+      .upload(`intelligence/${documentId}.json`, JSON.stringify(intel), {
+        contentType: "application/json",
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.warn("[Process Route] Failed to upload document intelligence JSON:", uploadError.message);
+    } else {
+      console.log(`[Process Route] Document intelligence generated & saved for doc ID: ${documentId}`);
+    }
+
+    // 6. Log operational metrics
+    console.log(`[DocIntel] Document Summary Generated: true`);
+    console.log(`[DocIntel] Topics Extracted: ${intel.topics.length}`);
+    console.log(`[DocIntel] Concept Count: ${intel.concepts.length}`);
+    console.log(`[DocIntel] Metadata Stored: ${!uploadError}`);
 
     const totalTimeMs = Date.now() - startTime;
     console.log(`[Process Route] Ingested document ${documentId} with ${result.totalPages} pages in ${totalTimeMs}ms`);
