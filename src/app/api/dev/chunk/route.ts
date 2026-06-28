@@ -107,6 +107,7 @@ export async function POST(request: Request) {
       },
       pages: parsedDoc.pages,
       chunks: chunkingResult,
+      documentAnalysis: parsedDoc.documentAnalysis,
     });
 
   } catch (err) {

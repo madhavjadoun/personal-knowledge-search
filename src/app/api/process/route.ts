@@ -2,9 +2,8 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { processDocument } from "@/lib/documentProcessor";
-
 import { chunkDocument } from "@/lib/chunkingEngine";
-import { generateDocumentIntelligence } from "@/lib/documentIntelligence";
+import { processEmbeddingPipeline } from "@/lib/embeddingPipeline";
 
 export async function POST(request: Request) {
   const startTime = Date.now();
@@ -66,50 +65,29 @@ export async function POST(request: Request) {
 
     const arrayBuffer = await fileData.arrayBuffer();
 
-    // 1. Call PDF parser / document processing layer
+    // 1. Call PDF parser / document processing layer (upgraded with tables + OCR)
     const result = await processDocument(arrayBuffer);
 
-    // 2. Perform chunking internally for stats & document intelligence
+    // 2. Perform chunking internally
     const chunksResult = chunkDocument(result, documentId, {
       maxChunkCharacters: 500,
       overlapCharacters: 50,
     });
 
-    // 3. Fetch document title
-    const { data: docData } = await supabaseClient
-      .from("documents")
-      .select("title")
-      .eq("id", documentId)
-      .single();
-    const docTitle = docData?.title || storagePath.split("/").pop() || "Document";
-
-    // 4. Generate Document Intelligence
-    const localChunks = chunksResult.chunks.map((c: any) => ({
+    // 3. Map to embedding pipeline format
+    const chunkInputs = chunksResult.chunks.map((c, idx) => ({
+      chunkId: c.chunkId,
+      documentId: documentId,
       pageStart: c.pageStart,
       pageEnd: c.pageEnd,
+      chunkIndex: idx,
       text: c.text,
     }));
-    const intel = await generateDocumentIntelligence(documentId, docTitle, result, localChunks);
 
-    // 5. Store intelligence JSON separately in Supabase Storage
-    const { error: uploadError } = await supabaseClient.storage
-      .from("documents")
-      .upload(`intelligence/${documentId}.json`, JSON.stringify(intel), {
-        contentType: "application/json",
-        upsert: true,
-      });
-
-    if (uploadError) {
-      console.warn("[Process Route] Failed to upload document intelligence JSON:", uploadError.message);
-    } else {
-      console.log(`[Process Route] Document intelligence generated & saved for doc ID: ${documentId}`);
-    }
-
-    // 6. Log operational metrics
-    console.log(`[DocIntel] Document Summary Generated: true`);
-    console.log(`[DocIntel] Topics Extracted: ${intel.topics.length}`);
-    console.log(`[DocIntel] Concept Count: ${intel.concepts.length}`);
-    console.log(`[DocIntel] Metadata Stored: ${!uploadError}`);
+    // 4. Run embedding pipeline and save to Supabase
+    console.log(`[Process Route] Embedding ${chunkInputs.length} chunks for document ${documentId}...`);
+    await processEmbeddingPipeline(supabaseClient, documentId, chunkInputs, true);
+    console.log(`[Process Route] Document chunks successfully embedded and saved.`);
 
     const totalTimeMs = Date.now() - startTime;
     console.log(`[Process Route] Ingested document ${documentId} with ${result.totalPages} pages in ${totalTimeMs}ms`);

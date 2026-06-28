@@ -39,8 +39,8 @@ const QUICK = [
   },
   {
     href: "/chat",
-    label: "Start AI Chat",
-    sub: "Query across your documents",
+    label: "Generate PDF Quiz",
+    sub: "Create MCQ quizzes from your files",
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.85}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 9.75a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m-13.5 3.01c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 01.778-.332 48.294 48.294 0 005.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
@@ -360,7 +360,7 @@ export default function DashboardPage() {
                     <h3 className="text-[12px] font-medium tracking-[0.08em] uppercase text-[var(--text-4)]">Recent Activity Stream</h3>
                     {hasDocs && (
                       <span className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-600 dark:text-emerald-500 font-semibold">
-                        ● Retrieval Pipeline Online
+                        ● Quiz Pipeline Online
                       </span>
                     )}
                   </div>
@@ -416,7 +416,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex justify-between border-b border-[var(--border)]/40 pb-1.5">
                       <span className="text-[var(--text-3)] text-[13px] font-medium">Search Mode</span>
-                      <span className="font-semibold text-[var(--text-2)] text-[13px]">Hybrid Semantic</span>
+                      <span className="font-semibold text-[var(--text-2)] text-[13px]">Quiz Mode</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[var(--text-3)] text-[13px] font-medium">Ingestion Sync</span>
@@ -432,10 +432,10 @@ export default function DashboardPage() {
                   <h3 className="text-[12px] font-medium tracking-[0.08em] uppercase text-[var(--text-4)]">Workspace Actions</h3>
                   <div className="flex flex-col gap-2">
                     {[
-                      { q: "Summarize active logs", path: "/chat" },
-                      { q: "Run semantic queries", path: "/chat" },
+                      { q: "Practice with recursion questions", path: "/chat" },
+                      { q: "Generate tree quiz", path: "/chat" },
                       { q: "Ingest research paper", path: "/documents" },
-                      { q: "Verify vector mappings", path: "/chat" }
+                      { q: "Take graph quiz", path: "/chat" }
                     ].map((item) => (
                       <Link
                         key={item.q}

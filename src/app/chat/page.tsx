@@ -1,512 +1,287 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import AppShell from "@/components/app/AppShell";
+import { supabase } from "@/lib/supabase";
 import OrbitLoader from "@/components/app/OrbitLoader";
-import { renderMarkdown, MARKDOWN_CSS } from "@/utils/markdownRenderer";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-type ConfidenceLevel = "High" | "Medium" | "Low";
-
-interface PromptMetrics {
-  promptCharacters: number;
-  tokenEstimate: number;
-  contextCharacters: number;
-  chunksIncluded: number;
+interface MCQQuestion {
+  question: string;
+  options: string[];
+  correctAnswer: string;
+  explanation: string;
 }
 
-interface RetrievalMeta {
-  provider: string;
-  model: string;
-  returnedChunks: number;
-  averageSimilarity: number;
-  confidence: ConfidenceLevel;
-  totalTimeMs: number;
-}
-
-interface ChunkPreview {
-  chunkId: string;
-  documentId: string;
-  pageStart: number;
-  pageEnd: number;
-  similarityScore: number;
-  confidence: ConfidenceLevel;
-  preview: string;
-}
-
-interface Msg {
+interface DocumentItem {
   id: string;
-  role: "user" | "assistant";
-  text: string;
-  error?: boolean;
-  provider?: string;
-  model?: string;
-  generationTimeMs?: number;
-  promptMetrics?: PromptMetrics;
-  retrieval?: RetrievalMeta;
-  chunks?: ChunkPreview[];
-  sourcePages?: number[];
+  title: string;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+export default function QuizPage() {
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [selectedDocId, setSelectedDocId] = useState<string>("");
+  const [loadingDocs, setLoadingDocs] = useState(true);
+  const [generatingQuiz, setGeneratingQuiz] = useState(false);
+  const [questions, setQuestions] = useState<MCQQuestion[]>([]);
+  const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [score, setScore] = useState(0);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-const CONFIDENCE_STYLES: Record<ConfidenceLevel, string> = {
-  High:   "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  Medium: "bg-amber-500/15  text-amber-400  border-amber-500/30",
-  Low:    "bg-rose-500/15   text-rose-400   border-rose-500/30",
-};
-
-const CONFIDENCE_DOT: Record<ConfidenceLevel, string> = {
-  High:   "bg-emerald-400",
-  Medium: "bg-amber-400",
-  Low:    "bg-rose-400",
-};
-
-function ConfidenceBadge({ level }: { level: ConfidenceLevel }) {
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${CONFIDENCE_STYLES[level]}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${CONFIDENCE_DOT[level]}`} />
-      {level} Confidence
-    </span>
-  );
-}
-
-// ── Static content ────────────────────────────────────────────────────────────
-
-const INIT: Msg[] = [
-  {
-    id: "0",
-    role: "assistant",
-    text: "Hello! I'm your AI knowledge assistant. Ask me anything about your uploaded documents — I'll retrieve the most relevant context and generate a grounded answer using your local Qwen2.5 model.",
-  },
-];
-
-const SUGGESTED = [
-  "Summarize this document",
-  "Generate viva questions",
-  "Explain the main concepts",
-  "What are the key findings?",
-];
-
-const HISTORY = {
-  today: [
-    { id: "h1", title: "Summarize Research Paper" },
-    { id: "h2", title: "Vector Ingestion Pipeline" },
-  ],
-  yesterday: [
-    { id: "h3", title: "Sentence Transformer Specs" },
-    { id: "h4", title: "Supabase RLS Debugging" },
-  ],
-};
-
-// ── Component ─────────────────────────────────────────────────────────────────
-
-export default function ChatPage() {
-  const [messages, setMessages] = useState<Msg[]>(INIT);
-  const [input, setInput] = useState("");
-  const [thinking, setThinking] = useState(false);
-  const [loadingPhase, setLoadingPhase] = useState<"searching" | "analyzing" | "generating" | null>(null);
-  const [expandedChunks, setExpandedChunks] = useState<Set<string>>(new Set());
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  const [sessionId, setSessionId] = useState("");
+  // Fetch user's documents on mount
   useEffect(() => {
-    setSessionId(crypto.randomUUID());
+    async function fetchDocs() {
+      try {
+        setLoadingDocs(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: dbDocs, error } = await supabase
+          .from("documents")
+          .select("id, title")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        setDocuments(dbDocs || []);
+        if (dbDocs && dbDocs.length > 0) {
+          setSelectedDocId(dbDocs[0].id);
+        }
+      } catch (err) {
+        console.error("Failed to load documents:", err);
+        setErrorMsg("Failed to load documents. Please check your connection.");
+      } finally {
+        setLoadingDocs(false);
+      }
+    }
+
+    fetchDocs();
   }, []);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages, thinking]);
-
-  const toggleChunks = (msgId: string) => {
-    setExpandedChunks((prev) => {
-      const next = new Set(prev);
-      if (next.has(msgId)) next.delete(msgId);
-      else next.add(msgId);
-      return next;
-    });
-  };
-
-  // ── Send a message through the real RAG pipeline ──────────────────────────
-  const send = async (textToSend?: string) => {
-    const text = (textToSend || input).trim();
-    if (!text || thinking) return;
-    setInput("");
-    setThinking(true);
-
-    // Cycle through meaningful loading phases
-    setLoadingPhase("searching");
-    const t1 = setTimeout(() => setLoadingPhase("analyzing"), 800);
-    const t2 = setTimeout(() => setLoadingPhase("generating"), 1800);
-
-    const userMsg: Msg = { id: crypto.randomUUID(), role: "user", text };
-    setMessages((prev) => [...prev, userMsg]);
-
-    // Get session token for RLS
-    let authHeader: Record<string, string> = {};
-    try {
-      const { createClient } = await import("@supabase/supabase-js");
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-        { auth: { persistSession: true, storage: localStorage } }
-      );
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
-      if (token) authHeader = { Authorization: `Bearer ${token}` };
-    } catch { /* proceed without token */ }
+  // Trigger quiz generation from selected PDF
+  const handleGenerateQuiz = async () => {
+    if (!selectedDocId) return;
+    setGeneratingQuiz(true);
+    setErrorMsg(null);
+    setQuestions([]);
+    setUserAnswers({});
+    setSubmitted(false);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
       const res = await fetch("/api/answer", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeader },
-        body: JSON.stringify({ query: text, topK: 5, similarityThreshold: 0.3, sessionId }),
+        headers,
+        body: JSON.stringify({ documentId: selectedDocId }),
       });
 
       const data = await res.json();
-
       if (!res.ok || !data.success) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            error: true,
-            text: data.message || `Something went wrong (${data.code || res.status}).`,
-          },
-        ]);
-      } else {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            text: data.answer,
-            provider: data.provider,
-            model: data.model,
-            generationTimeMs: data.generationTimeMs,
-            promptMetrics: data.promptMetrics,
-            retrieval: data.retrieval,
-            chunks: data.chunks,
-            sourcePages: (data.sourcePages as number[]) ?? undefined,
-          },
-        ]);
+        throw new Error(data.error || "Quiz generation failed.");
       }
+
+      setQuestions(data.questions);
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          error: true,
-          text: "Network error — could not reach the answer API. Is the dev server running?",
-        },
-      ]);
-      console.error("[Chat] fetch error:", err);
+      console.error("Quiz error:", err);
+      setErrorMsg(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      setLoadingPhase(null);
-      setThinking(false);
-      inputRef.current?.focus();
+      setGeneratingQuiz(false);
     }
   };
 
-  const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+  const handleSelectOption = (qIdx: number, option: string) => {
+    if (submitted) return;
+    setUserAnswers((prev) => ({
+      ...prev,
+      [qIdx]: option,
+    }));
   };
 
-  const loadHistoryItem = (title: string) => {
-    setMessages([
-      ...INIT,
-      { id: crypto.randomUUID(), role: "user", text: `Load context: ${title}` },
-      {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        text: `I have restored the session for "${title}". Ask me any questions about these documents.`,
-      },
-    ]);
-  };
-
-  // ── Render ────────────────────────────────────────────────────────────────
-  return (
-    <AppShell
-      title="AI Chat"
-      subtitle="Semantic query workspace across indexed knowledge base."
-      action={
-        <button
-          id="chat-reset-btn"
-          onClick={() => { setMessages(INIT); setExpandedChunks(new Set()); setSessionId(crypto.randomUUID()); }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border border-[var(--border)] hover:bg-[var(--bg-2)] transition-colors text-[var(--text-2)] cursor-pointer"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-          </svg>
-          Reset Session
-        </button>
+  const handleSubmitQuiz = () => {
+    // Calculate score
+    let correctCount = 0;
+    questions.forEach((q, idx) => {
+      if (userAnswers[idx] === q.correctAnswer) {
+        correctCount++;
       }
-    >
-      <div
-        className="max-w-6xl mx-auto flex gap-6 overflow-hidden"
-        style={{ height: "calc(100vh - 52px - 148px)" }}
-      >
-        {/* Chat History Sidebar */}
-        <aside className="hidden md:flex flex-col w-56 flex-shrink-0 glass-card rounded-xl overflow-hidden p-3.5 space-y-4">
-          <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-4)] mb-2">Today</h3>
-            <div className="space-y-1">
-              {HISTORY.today.map((item) => (
-                <button key={item.id} id={`history-${item.id}`} onClick={() => loadHistoryItem(item.title)}
-                  className="w-full text-left truncate text-sm px-2.5 py-1.5 rounded-lg text-[var(--text-3)] hover:bg-[var(--bg-2)] hover:text-[var(--text-1)] transition-colors cursor-pointer">
-                  💬 {item.title}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-4)] mb-2">Yesterday</h3>
-            <div className="space-y-1">
-              {HISTORY.yesterday.map((item) => (
-                <button key={item.id} id={`history-${item.id}`} onClick={() => loadHistoryItem(item.title)}
-                  className="w-full text-left truncate text-sm px-2.5 py-1.5 rounded-lg text-[var(--text-3)] hover:bg-[var(--bg-2)] hover:text-[var(--text-1)] transition-colors cursor-pointer">
-                  💬 {item.title}
-                </button>
-              ))}
-            </div>
-          </div>
-        </aside>
+    });
+    setScore(correctCount);
+    setSubmitted(true);
+  };
 
-        {/* Main Conversation Window */}
-        <div className="flex-1 flex flex-col min-w-0 glass-card rounded-xl overflow-hidden p-4">
-
-          {/* Messages Feed */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-4 pr-1 scroll-smooth">
-
-            {/* Empty workspace state */}
-            {messages.length === 1 && (
-              <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-5">
-                <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-[var(--bg-2)] border border-[var(--border)] text-[var(--text-4)]">
-                  <svg className="w-5 h-5 text-[var(--indigo)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.85}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 9.75a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375" />
-                  </svg>
+  return (
+    <AppShell title="Quiz Generator" subtitle="Generate MCQ quizzes directly from your uploaded PDF notes">
+      <div className="max-w-4xl mx-auto space-y-6 pb-12">
+        {/* Setup Card */}
+        <div className="glass-card rounded-xl p-6 space-y-4">
+          <h2 className="text-lg font-bold text-[var(--text-1)]">Configure Your Quiz</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+            <div className="sm:col-span-2 space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-[var(--text-4)]">Select Document</label>
+              {loadingDocs ? (
+                <div className="h-10.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] animate-pulse flex items-center px-3 text-sm text-[var(--text-4)]">
+                  Loading documents...
                 </div>
-                <div className="space-y-1">
-                  <h3 className="text-base font-semibold text-[var(--text-2)]">Ask anything from your knowledge base.</h3>
-                  <p className="text-sm text-[var(--text-4)] max-w-[320px]">
-                    Answers are generated locally by Qwen2.5 and grounded strictly in your documents.
-                    Out-of-domain queries are rejected automatically.
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-[360px] w-full">
-                  {SUGGESTED.map((prompt) => (
-                    <button key={prompt} id={`suggested-${prompt.replace(/\s+/g, "-").toLowerCase()}`}
-                      onClick={() => send(prompt)}
-                      className="text-xs text-left px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-2)]/20 hover:bg-[var(--bg-2)] text-[var(--text-3)] hover:text-[var(--text-1)] hover:border-slate-300 dark:hover:border-zinc-700 transition-all font-medium cursor-pointer">
-                      {prompt}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Message list */}
-            {messages.length > 1 && messages.map((m) =>
-              m.role === "user" ? (
-                /* ── User bubble ── */
-                <div key={m.id} className="flex justify-end pl-10">
-                  <div className="chat-user-bubble px-4 py-3 text-[16px] leading-[1.7] font-medium">{m.text}</div>
+              ) : documents.length === 0 ? (
+                <div className="h-10.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] flex items-center px-3 text-sm text-[var(--text-4)]">
+                  No documents found. Please upload a PDF first in Documents.
                 </div>
               ) : (
-                /* ── Assistant bubble ── */
-                <div key={m.id} className="flex gap-3 items-start pr-10">
-                  {/* AI avatar */}
-                  <div className="flex-shrink-0 mt-0.5">
-                    <div className={`h-7 w-7 rounded-lg flex items-center justify-center border border-[var(--border)] bg-[var(--bg-2)] ${m.error ? "text-red-400" : "text-[var(--indigo)]"}`}>
-                      {m.error ? (
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                        </svg>
-                      ) : (
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 21m0 0l-.813-5.096M9 21h3m-3.375-10.125h3.375" />
-                        </svg>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex-1 min-w-0 space-y-2">
-
-                    {/* ── PART 1: AI Answer (always first) ── */}
-                    <style>{MARKDOWN_CSS}</style>
-                    <div
-                      className={`chat-ai-bubble px-4 py-3 text-[16px] leading-[1.7] ${m.error ? "text-red-400" : ""}`}
-                      {...(m.error
-                        ? { children: m.text }
-                        : {
-                            dangerouslySetInnerHTML: { __html: renderMarkdown(m.text) },
-                          })}
-                    />
-
-                    {/* ── PART 2: Pipeline metrics row ── */}
-                    {!m.error && (m.retrieval || m.promptMetrics) && (
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[12px] font-medium text-[var(--text-4)]">
-                        {m.retrieval?.confidence && <ConfidenceBadge level={m.retrieval.confidence} />}
-                        {m.retrieval && (
-                          <>
-                            <span>🔍 {m.retrieval.returnedChunks} chunk{m.retrieval.returnedChunks !== 1 ? "s" : ""}</span>
-                            <span>≈{(m.retrieval.averageSimilarity * 100).toFixed(1)}% avg sim</span>
-                            <span>retrieval {m.retrieval.totalTimeMs}ms</span>
-                          </>
-                        )}
-                        {m.generationTimeMs !== undefined && <span>⚡ gen {m.generationTimeMs}ms</span>}
-                        {m.provider && m.model && <span>🤖 {m.provider}/{m.model}</span>}
-                        {m.promptMetrics && <span>~{m.promptMetrics.tokenEstimate} tokens</span>}
-                      </div>
-                    )}
-
-                    {/* ── PART 3: Source pages attribution ── */}
-                    {!m.error && m.sourcePages && m.sourcePages.length > 0 && (
-                      <div className="px-1">
-                        <p className="text-[11px] font-semibold text-[var(--text-4)]">
-                          {m.sourcePages.length === 1
-                            ? `📄 Source: Page ${m.sourcePages[0]}`
-                            : (m.sourcePages[m.sourcePages.length - 1] - m.sourcePages[0] === m.sourcePages.length - 1)
-                              ? `📄 Source: Pages ${m.sourcePages[0]}–${m.sourcePages[m.sourcePages.length - 1]}`
-                              : `📄 Sources: Pages ${m.sourcePages.join(", ")}`
-                          }
-                        </p>
-                      </div>
-                    )}
-
-                    {/* ── PART 4: Retrieved chunks (collapsible, below answer) ── */}
-                    {!m.error && m.chunks && m.chunks.length > 0 && (
-                      <div className="mt-1">
-                        <button
-                          onClick={() => toggleChunks(m.id)}
-                          className="flex items-center gap-1.5 text-[12px] font-semibold text-[var(--text-4)] hover:text-[var(--text-2)] transition-colors mb-2 cursor-pointer"
-                        >
-                          <svg
-                            className={`w-3 h-3 transition-transform ${expandedChunks.has(m.id) ? "rotate-90" : ""}`}
-                            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                          </svg>
-                          {expandedChunks.has(m.id) ? "Hide" : "Show"} {m.chunks.length} retrieved chunk{m.chunks.length !== 1 ? "s" : ""}
-                        </button>
-
-                        {expandedChunks.has(m.id) && (
-                          <div className="space-y-2">
-                            {m.chunks.map((chunk, idx) => (
-                              <div
-                                key={chunk.chunkId}
-                                className="p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-2)]/30 space-y-1.5"
-                              >
-                                <div className="flex items-center justify-between gap-2 flex-wrap">
-                                  <span className="text-[11px] font-bold text-[var(--text-4)] uppercase tracking-wider">
-                                    Chunk {idx + 1} · Page {chunk.pageStart}
-                                  </span>
-                                  <div className="flex items-center gap-2">
-                                    <ConfidenceBadge level={chunk.confidence} />
-                                    <span className="text-[11px] font-mono text-[var(--text-4)]">
-                                      {(chunk.similarityScore * 100).toFixed(1)}%
-                                    </span>
-                                  </div>
-                                </div>
-                                <p className="text-[13px] text-[var(--text-3)] leading-relaxed line-clamp-3">
-                                  {chunk.preview}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            )}
-
-            {/* Thinking indicator */}
-            {thinking && (
-              <div className="flex gap-3 items-start">
-                <div className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 border border-[var(--border)] bg-[var(--bg-2)] text-[var(--indigo)] mt-0.5">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 21m0 0l-.813-5.096M9 21h3m-3.375-10.125h3.375" />
-                  </svg>
-                </div>
-                <div className="chat-ai-bubble flex items-center gap-3 px-4 py-3 text-sm text-[var(--text-2)]">
-                  <OrbitLoader size={20} />
-                  <div>
-                    <p className="font-semibold text-[var(--text-1)]">
-                      {loadingPhase === "searching"  && "Searching document…"}
-                      {loadingPhase === "analyzing"  && "Analyzing retrieved context…"}
-                      {loadingPhase === "generating" && "Generating answer…"}
-                      {!loadingPhase && "Generating answer…"}
-                    </p>
-                    <div className="flex gap-1 mt-1.5">
-                      <span className={`h-0.5 w-6 rounded-full transition-all duration-500 ${
-                        loadingPhase === "searching" || loadingPhase === "analyzing" || loadingPhase === "generating"
-                          ? "bg-[var(--indigo)]" : "bg-[var(--border)]"
-                      }`} />
-                      <span className={`h-0.5 w-6 rounded-full transition-all duration-500 ${
-                        loadingPhase === "analyzing" || loadingPhase === "generating"
-                          ? "bg-[var(--indigo)]" : "bg-[var(--border)]"
-                      }`} />
-                      <span className={`h-0.5 w-6 rounded-full transition-all duration-500 ${
-                        loadingPhase === "generating" ? "bg-[var(--indigo)]" : "bg-[var(--border)]"
-                      }`} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Input bar */}
-          <div className="flex-shrink-0 pt-3">
-            <div className="glass-chat-input rounded-xl p-3 flex flex-col">
-              <textarea
-                ref={inputRef}
-                id="chat-input"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={onKey}
-                placeholder="Ask anything about your documents…"
-                rows={1}
-                className="w-full resize-none bg-transparent text-sm leading-relaxed outline-none border-none p-0 text-[var(--text-1)]"
-                style={{ maxHeight: "100px" }}
-              />
-              <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-[var(--border)]">
-                <p className="text-xs text-[var(--text-4)]">
-                  <kbd className="px-1.5 py-0.5 rounded font-mono text-[11px] bg-[var(--bg-2)] border border-[var(--border)] text-[var(--text-4)]">Enter</kbd>
-                  {" "}to send · Shift+Enter for newline
-                </p>
-                <button
-                  id="chat-send-btn"
-                  onClick={() => send()}
-                  disabled={!input.trim() || thinking}
-                  className="grad-btn flex items-center gap-1.5 px-4.5 py-1.5 rounded-lg text-sm font-semibold"
+                <select
+                  value={selectedDocId}
+                  onChange={(e) => setSelectedDocId(e.target.value)}
+                  className="w-full h-10.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm text-[var(--text-2)] focus:outline-none focus:border-[var(--indigo)] cursor-pointer"
                 >
-                  {thinking ? (
-                    <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                  {documents.map((doc) => (
+                    <option key={doc.id} value={doc.id}>
+                      {doc.title}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div>
+              <button
+                onClick={handleGenerateQuiz}
+                disabled={generatingQuiz || documents.length === 0}
+                className="w-full h-10.5 rounded-lg bg-[var(--indigo)] text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity cursor-pointer flex items-center justify-center gap-2"
+              >
+                {generatingQuiz ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                  ) : (
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-                    </svg>
-                  )}
-                  Send
-                </button>
-              </div>
+                    Generating...
+                  </>
+                ) : (
+                  "Generate 10 MCQs"
+                )}
+              </button>
             </div>
           </div>
+
+          {errorMsg && (
+            <div className="p-3.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-sm text-rose-400">
+              {errorMsg}
+            </div>
+          )}
         </div>
+
+        {/* Loading State */}
+        {generatingQuiz && (
+          <div className="glass-card rounded-xl p-12 flex flex-col items-center justify-center space-y-4">
+            <OrbitLoader />
+            <div className="text-center space-y-1">
+              <p className="text-base font-semibold text-[var(--text-2)]">Creating MCQ Quiz</p>
+              <p className="text-xs text-[var(--text-4)]">Reading PDF pages, generating distractors & mapping explanations...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Quiz Questions */}
+        {questions.length > 0 && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-[var(--text-1)]">Practice Quiz</h2>
+              {submitted && (
+                <div className={`px-4 py-1.5 rounded-full border text-sm font-bold flex items-center gap-2 ${
+                  score >= 7 
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
+                    : score >= 5 
+                    ? "bg-amber-500/10 text-amber-400 border-amber-500/20" 
+                    : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                }`}>
+                  Score: {score} / {questions.length} ({Math.round((score / questions.length) * 100)}%)
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              {questions.map((q, idx) => {
+                const isSelected = (opt: string) => userAnswers[idx] === opt;
+                const isCorrectOption = (opt: string) => q.correctAnswer === opt;
+                
+                return (
+                  <div key={idx} className="glass-card rounded-xl p-6 space-y-4 border border-[var(--border)]">
+                    <div className="flex gap-2 items-start">
+                      <span className="font-semibold text-sm text-[var(--indigo)] bg-[var(--indigo)]/10 px-2 py-0.5 rounded-md">Q{idx + 1}</span>
+                      <h3 className="text-[15px] font-semibold text-[var(--text-2)] pt-0.5">{q.question}</h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2.5 pl-9">
+                      {q.options.map((opt) => {
+                        let optStyle = "border-[var(--border)] bg-[var(--surface)] text-[var(--text-3)] hover:border-slate-300 dark:hover:border-zinc-700";
+                        
+                        if (submitted) {
+                          if (isCorrectOption(opt)) {
+                            optStyle = "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 font-medium";
+                          } else if (isSelected(opt)) {
+                            optStyle = "border-rose-500/40 bg-rose-500/10 text-rose-400";
+                          } else {
+                            optStyle = "opacity-60 border-[var(--border)] bg-[var(--surface)] text-[var(--text-3)]";
+                          }
+                        } else if (isSelected(opt)) {
+                          optStyle = "border-[var(--indigo)] bg-[var(--indigo)]/5 text-[var(--text-1)] font-medium";
+                        }
+
+                        return (
+                          <button
+                            key={opt}
+                            disabled={submitted}
+                            onClick={() => handleSelectOption(idx, opt)}
+                            className={`w-full text-left px-4 py-3 rounded-lg border text-sm transition-all flex items-center justify-between ${optStyle} ${
+                              !submitted ? "cursor-pointer active:scale-[0.995]" : "cursor-default"
+                            }`}
+                          >
+                            <span>{opt}</span>
+                            {submitted && isCorrectOption(opt) && (
+                              <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                              </svg>
+                            )}
+                            {submitted && isSelected(opt) && !isCorrectOption(opt) && (
+                              <svg className="w-4 h-4 text-rose-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Explanations shown for wrong answers after submission */}
+                    {submitted && !isSelected(q.correctAnswer) && (
+                      <div className="pl-9 mt-2.5">
+                        <div className="p-3.5 rounded-lg bg-indigo-500/5 border border-indigo-500/15 text-[13px] leading-relaxed text-[var(--text-3)]">
+                          <p className="font-semibold text-[var(--indigo)] mb-1">Explanation from PDF:</p>
+                          <p className="italic">&ldquo;{q.explanation}&rdquo;</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Quiz submission actions */}
+            {!submitted && (
+              <div className="flex justify-end pt-4">
+                <button
+                  onClick={handleSubmitQuiz}
+                  disabled={Object.keys(userAnswers).length < questions.length}
+                  className="px-6 h-11.5 rounded-lg bg-[var(--indigo)] text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity cursor-pointer"
+                >
+                  Submit Quiz
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </AppShell>
   );

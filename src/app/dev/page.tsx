@@ -4,7 +4,14 @@ import { useState, useEffect } from "react";
 import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { renderMarkdown, MARKDOWN_CSS } from "@/utils/markdownRenderer";
+import { DocumentAnalysis, PageAnalysis, RegionAnalysis } from "@/lib/documentProcessor";
 
+function safeRandomUUID(): string {
+  if (typeof globalThis !== "undefined" && globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random()}`;
+}
 
 interface SupabaseDoc {
   id: string;
@@ -99,6 +106,7 @@ export default function DevPage() {
   const [docInfo, setDocInfo] = useState<DocumentInfo | null>(null);
   const [pages, setPages] = useState<ProcessedPage[]>([]);
   const [chunksResult, setChunksResult] = useState<ChunkingResult | null>(null);
+  const [documentAnalysis, setDocumentAnalysis] = useState<DocumentAnalysis | null>(null);
   const [chunkEmbeddingStatuses, setChunkEmbeddingStatuses] = useState<Record<string, ChunkEmbeddingStatus>>({});
   const [forceRegenerate, setForceRegenerate] = useState(false);
 
@@ -124,7 +132,7 @@ export default function DevPage() {
 
   const [sessionId, setSessionId] = useState("");
   useEffect(() => {
-    setSessionId(crypto.randomUUID());
+    setSessionId(safeRandomUUID());
   }, []);
 
   // UI state
@@ -165,6 +173,7 @@ export default function DevPage() {
     setDocInfo(null);
     setPages([]);
     setChunksResult(null);
+    setDocumentAnalysis(null);
     setChunkEmbeddingStatuses({});
     setExpandedChunks({});
 
@@ -180,7 +189,7 @@ export default function DevPage() {
         console.warn("[Dev Page] Failed to query existing database chunks:", dbError.message);
       }
 
-      if (dbChunks && dbChunks.length > 0) {
+      if (!forceRegenerate && dbChunks && dbChunks.length > 0) {
         console.log(`[Dev Page] Found ${dbChunks.length} persisted chunks in database. Loading directly.`);
 
         const docRecord = docs.find((d) => d.id === selectedDocId);
@@ -212,6 +221,8 @@ export default function DevPage() {
         });
 
         setPages(parseData.pages || []);
+        setDocumentAnalysis(parseData.documentAnalysis || null);
+        console.log("[Dev Page] Document Analysis loaded:", parseData.documentAnalysis);
 
         setChunksResult({
           totalChunks: dbChunks.length,
@@ -272,6 +283,8 @@ export default function DevPage() {
       setDocInfo(data.documentInfo);
       setPages(data.pages);
       setChunksResult(data.chunks);
+      setDocumentAnalysis(data.documentAnalysis || null);
+      console.log("[Dev Page] Document Analysis generated:", data.documentAnalysis);
 
       // Initialize all chunk embedding statuses to Pending
       const initialStatus: Record<string, ChunkEmbeddingStatus> = {};
@@ -774,6 +787,36 @@ export default function DevPage() {
                 <p><strong className="text-slate-600">Smallest Chunk:</strong> {chunksResult.smallestChunkSize} chars</p>
               </div>
             </div>
+
+            {/* DOCUMENT STRUCTURE ANALYSIS (PHASE 1) */}
+            {documentAnalysis && (
+              <div className="border border-slate-200 rounded-lg p-5">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-3 pb-1 border-b border-slate-100">
+                  Document Structure Analysis
+                </h3>
+                <div className="text-xs space-y-2 max-h-[300px] overflow-y-auto">
+                  {documentAnalysis.pages?.map((p: PageAnalysis) => (
+                    <div key={p.page} className="border border-slate-100 rounded p-2 bg-slate-50/50">
+                      <div className="font-semibold text-slate-700 mb-1 border-b border-slate-100 pb-0.5">
+                        Page {p.page} Regions
+                      </div>
+                      {p.regions?.length === 0 ? (
+                        <div className="text-slate-400 italic">No regions detected</div>
+                      ) : (
+                        <ul className="space-y-1 list-disc list-inside">
+                          {p.regions.map((r: RegionAnalysis, idx: number) => (
+                            <li key={idx} className="text-slate-600">
+                              <span className="font-medium text-blue-600 capitalize">{r.type}</span>:{" "}
+                              <span className="text-slate-400">({r.content?.length || 0} chars)</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* PAGE VIEWER */}
             <div className="border border-slate-200 rounded-lg overflow-hidden">

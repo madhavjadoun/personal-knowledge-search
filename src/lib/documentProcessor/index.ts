@@ -1,10 +1,14 @@
 import { parsePDF } from "./pdfParser";
 import { normalizeText } from "./normalizer";
 import { DocumentProcessingResult, ProcessedPage } from "./types";
+import { analyzeDocument } from "./analyzer";
+import { parsePageToBlocks } from "./structuredParser";
 
 export * from "./types";
 export * from "./normalizer";
 export * from "./pdfParser";
+export * from "./analyzer";
+export * from "./structuredParser";
 
 /**
  * Orchestrates the full document processing pipeline:
@@ -25,11 +29,13 @@ export async function processDocument(arrayBuffer: ArrayBuffer): Promise<Documen
   for (const rawPage of rawResult.pages) {
     const normalizedText = normalizeText(rawPage.rawText);
     const charCount = normalizedText.length;
+    const blocks = parsePageToBlocks(normalizedText);
     
     processedPages.push({
       pageNumber: rawPage.pageNumber,
       characterCount: charCount,
       extractedText: normalizedText,
+      blocks,
     });
     
     totalCharacters += charCount;
@@ -38,6 +44,18 @@ export async function processDocument(arrayBuffer: ArrayBuffer): Promise<Documen
       `[DocumentProcessor] Processed Page ${rawPage.pageNumber}: ${charCount} characters (normalized)`
     );
   }
+
+  // Pre-build temporary DocumentProcessingResult to feed to analyzer
+  const tempResult: DocumentProcessingResult = {
+    totalPages: rawResult.totalPages,
+    totalCharacters,
+    pages: processedPages,
+  };
+
+  // Run Adaptive Document Analyzer immediately after text extraction
+  console.log("[DocumentProcessor] Executing Adaptive Document Structure Analyzer (Phase 1)...");
+  const documentAnalysis = analyzeDocument(tempResult);
+  console.log("[DocumentProcessor] Structure analysis completed successfully.");
 
   const durationMs = Date.now() - startTime;
   console.log("=== [DOCUMENT PROCESSING COMPLETED] ===");
@@ -50,5 +68,6 @@ export async function processDocument(arrayBuffer: ArrayBuffer): Promise<Documen
     totalPages: rawResult.totalPages,
     totalCharacters,
     pages: processedPages,
+    documentAnalysis,
   };
 }
