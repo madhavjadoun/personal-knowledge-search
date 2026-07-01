@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import AppShell from "@/components/app/AppShell";
 import { supabase } from "@/lib/supabase";
 import OrbitLoader from "@/components/app/OrbitLoader";
+import { CheckCircle2, Target, Brain, Download as DownloadIcon } from "lucide-react";
 
 interface QuizAttempt {
   completed: boolean;
@@ -46,25 +47,39 @@ export default function HistoryPage() {
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
 
+  const [downloadedCount, setDownloadedCount] = useState(0);
+  const fetchedRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const downloadedList = JSON.parse(localStorage.getItem("downloaded_reports") || "[]");
+      const currentUserQuizIds = new Set(quizzes.map(q => q.id));
+      const userDownloads = downloadedList.filter((id: string) => currentUserQuizIds.has(id));
+      setDownloadedCount(userDownloads.length);
+    }
+  }, [quizzes]);
+
   const showToast = (message: string, type: "error" | "success" = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
 
   const fetchHistory = async () => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
         router.push("/login");
         return;
       }
 
-      // Fetch user's documents
+      // 1. Fetch user's documents to create doc ID-to-title mapping on frontend
       const { data: docs, error: docsError } = await supabase
         .from("documents")
-        .select("id, title, file_name")
-        .eq("user_id", user.id);
+        .select("id, title, file_name");
 
       if (docsError) throw docsError;
 
@@ -74,21 +89,26 @@ export default function HistoryPage() {
       });
       setDocMap(mapping);
 
-      if (!docs || docs.length === 0) {
-        setQuizzes([]);
-        return;
+      // 2. Fetch quizzes associated with user's documents via secure backend API
+      let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      if (apiUrl.includes("localhost")) {
+        apiUrl = apiUrl.replace("localhost", "127.0.0.1");
+      }
+      console.log("Debugging fetchHistory — apiUrl:", apiUrl);
+      console.log("Debugging fetchHistory — token exists:", !!token, "length:", token?.length);
+      const res = await fetch(`${apiUrl}/quiz/user-history`, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.detail || "Server failed to fetch quiz history.");
       }
 
-      // Fetch quizzes associated with user's documents
-      const docIds = docs.map(d => d.id);
-      const { data: quizData, error: quizError } = await supabase
-        .from("quizzes")
-        .select("*, quiz_questions(*)")
-        .in("document_id", docIds)
-        .order("created_at", { ascending: false });
-
-      if (quizError) throw quizError;
-      setQuizzes(quizData || []);
+      const quizData = await res.json();
+      setQuizzes(quizData.quizzes || []);
     } catch (err) {
       console.error("Failed to load history:", err);
       showToast("Error loading quiz history.", "error");
@@ -134,7 +154,7 @@ export default function HistoryPage() {
   };
 
   const formatTime = (seconds: number) => {
-    if (!seconds) return "N/A";
+    if (!seconds || seconds <= 0) return "--:--";
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return m > 0 ? `${m}m ${s}s` : `${s}s`;
@@ -179,6 +199,18 @@ export default function HistoryPage() {
 
     import("@/utils/pdfGenerator").then((mod) => {
       mod.downloadQuizReport(reportData);
+      
+      // Track download in localStorage
+      if (typeof window !== "undefined") {
+        const downloadedList = JSON.parse(localStorage.getItem("downloaded_reports") || "[]");
+        if (!downloadedList.includes(quiz.id)) {
+          downloadedList.push(quiz.id);
+          localStorage.setItem("downloaded_reports", JSON.stringify(downloadedList));
+          const currentUserQuizIds = new Set(quizzes.map(q => q.id));
+          const userDownloads = downloadedList.filter((id: string) => currentUserQuizIds.has(id));
+          setDownloadedCount(userDownloads.length);
+        }
+      }
     });
   };
 
@@ -186,21 +218,26 @@ export default function HistoryPage() {
     if (!quizToDelete) return;
     try {
       setDeleting(true);
-      // Delete questions first
-      const { error: questionsErr } = await supabase
-        .from("quiz_questions")
-        .delete()
-        .eq("quiz_id", quizToDelete.id);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("No token");
 
-      if (questionsErr) throw questionsErr;
+      let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      if (apiUrl.includes("localhost")) {
+        apiUrl = apiUrl.replace("localhost", "127.0.0.1");
+      }
 
-      // Delete quiz header
-      const { error: quizErr } = await supabase
-        .from("quizzes")
-        .delete()
-        .eq("id", quizToDelete.id);
+      const res = await fetch(`${apiUrl}/quiz/${quizToDelete.id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
 
-      if (quizErr) throw quizErr;
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.detail || "Server failed to delete quiz.");
+      }
 
       showToast("Quiz deleted successfully.", "success");
       setQuizzes(prev => prev.filter(q => q.id !== quizToDelete.id));
@@ -213,9 +250,115 @@ export default function HistoryPage() {
     }
   };
 
+  const [clearAllConfirm, setClearAllConfirm] = useState(false);
+  const [clearing, setClearing] = useState(false);
+
+  const triggerClearAll = async () => {
+    try {
+      setClearing(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("No token");
+
+      let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      if (apiUrl.includes("localhost")) {
+        apiUrl = apiUrl.replace("localhost", "127.0.0.1");
+      }
+
+      const res = await fetch(`${apiUrl}/quiz/clear-all`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.detail || "Server failed to clear quiz history.");
+      }
+
+      showToast("All quiz history cleared successfully.", "success");
+      setQuizzes([]);
+      setClearAllConfirm(false);
+    } catch (err) {
+      console.error("Clear all failed:", err);
+      showToast("Failed to clear quiz history.", "error");
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  const completedQuizzes = quizzes.filter(q => {
+    const attempt = parseAttempt(q.status, "");
+    return attempt.completed;
+  });
+  const completedCount = completedQuizzes.length;
+  const avgAccuracy = completedCount > 0 
+    ? Math.round(completedQuizzes.reduce((acc, q) => acc + parseAttempt(q.status, "").accuracy, 0) / completedCount) 
+    : 0;
+  const questionsSolved = completedQuizzes.reduce((acc, q) => acc + parseAttempt(q.status, "").correct, 0);
+
   return (
     <AppShell title="Quiz History" subtitle="Review your past AI quiz attempts and performance.">
       <div className="max-w-7xl mx-auto space-y-7">
+        
+        {/* Top Summary Cards */}
+        {!loading && quizzes.length > 0 && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-5 flex items-center justify-between hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 cursor-pointer">
+              <div className="space-y-1">
+                <p className="text-[12px] font-medium text-[var(--text-3)]">Completed</p>
+                <p className="text-2xl font-bold text-[var(--text-1)]">{completedCount}</p>
+              </div>
+              <CheckCircle2 className="w-5 h-5 text-[var(--text-3)] opacity-80" strokeWidth={1.5} />
+            </div>
+
+            <div className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-5 flex items-center justify-between hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 cursor-pointer">
+              <div className="space-y-1">
+                <p className="text-[12px] font-medium text-[var(--text-3)]">Avg Accuracy</p>
+                <p className="text-2xl font-bold text-[var(--text-1)]">{avgAccuracy}%</p>
+              </div>
+              <Target className="w-5 h-5 text-[var(--text-3)] opacity-80" strokeWidth={1.5} />
+            </div>
+
+            <div className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-5 flex items-center justify-between hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 cursor-pointer">
+              <div className="space-y-1">
+                <p className="text-[12px] font-medium text-[var(--text-3)]">Questions Solved</p>
+                <p className="text-2xl font-bold text-[var(--text-1)]">{questionsSolved}</p>
+              </div>
+              <Brain className="w-5 h-5 text-[var(--text-3)] opacity-80" strokeWidth={1.5} />
+            </div>
+
+            <div className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-5 flex items-center justify-between hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 cursor-pointer">
+              <div className="space-y-1">
+                <p className="text-[12px] font-medium text-[var(--text-3)]">Downloads</p>
+                <p className="text-2xl font-bold text-[var(--text-1)]">{downloadedCount}</p>
+              </div>
+              <DownloadIcon className="w-5 h-5 text-[var(--text-3)] opacity-80" strokeWidth={1.5} />
+            </div>
+          </div>
+        )}
+
+        {/* Header Actions row */}
+        {!loading && quizzes.length > 0 && (
+          <div className="flex justify-between items-center bg-[var(--bg-2)]/60 border border-[var(--border)] rounded-xl p-4">
+            <div className="space-y-0.5">
+              <h3 className="text-sm font-bold text-[var(--text-1)]">Recent Attempts</h3>
+              <p className="text-[11px] text-[var(--text-3)] font-medium">
+                {completedCount === 1 ? "1 Completed Quiz" : `${completedCount} Completed Quizzes`}
+              </p>
+            </div>
+            <button
+              onClick={() => setClearAllConfirm(true)}
+              className="px-3.5 py-1.5 border border-[var(--border)] hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 h-9"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              <span>Clear History</span>
+            </button>
+          </div>
+        )}
         
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3">
@@ -225,15 +368,15 @@ export default function HistoryPage() {
             </p>
           </div>
         ) : quizzes.length === 0 ? (
-          <div className="w-full max-w-[560px] mx-auto border border-dashed border-slate-200 dark:border-zinc-700/60 bg-slate-50/50 dark:bg-zinc-900/10 rounded-[18px] py-10 px-6 flex flex-col items-center justify-center text-center animate-in fade-in duration-250 min-h-[220px]">
-            <span className="text-3xl mb-3">📋</span>
-            <h3 className="text-sm font-semibold text-[var(--text-1)]">No quiz attempts found</h3>
-            <p className="text-xs text-[var(--text-3)] mt-1 max-w-[320px] leading-relaxed">
-              Generate practice quizzes from your uploaded documents to build history and track accuracy.
+          <div className="w-full max-w-[560px] mx-auto border border-dashed border-[var(--border)] bg-[var(--bg-2)]/30 rounded-[12px] py-12 px-6 flex flex-col items-center justify-center text-center animate-in fade-in duration-250 min-h-[250px]">
+            <span className="text-4xl mb-4">🎉</span>
+            <h3 className="text-base font-bold text-[var(--text-1)]">No quizzes yet</h3>
+            <p className="text-xs text-[var(--text-3)] mt-1.5 max-w-[320px] leading-relaxed font-medium">
+              Generate your first practice quiz to see your history and download performance reports here.
             </p>
             <Link
               href="/chat"
-              className="mt-5 px-5 py-2.5 bg-[var(--indigo)] hover:bg-[var(--indigo)]/90 text-white rounded-xl text-xs font-bold transition-all shadow hover:shadow-md cursor-pointer inline-flex items-center gap-1.5"
+              className="grad-btn mt-6 px-5 py-2.5 rounded-lg text-xs font-bold cursor-pointer inline-flex items-center gap-1.5 hover:-translate-y-0.5 transition-all duration-300"
             >
               Generate Quiz
             </Link>
@@ -253,102 +396,131 @@ export default function HistoryPage() {
               return (
                 <div
                   key={quiz.id}
-                  className="glass-card rounded-[18px] p-6 flex flex-col justify-between min-h-[200px] hover:-translate-y-[2px] hover:shadow-lg transition-all duration-200"
+                  className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-6 flex flex-col justify-between min-h-[220px] hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300"
                 >
-                  <div className="space-y-3.5">
+                  <div className="space-y-4">
                     {/* Header Row */}
                     <div className="flex justify-between items-start gap-4">
-                      <div className="space-y-0.5">
-                        <h4 className="text-[16px] font-bold text-[var(--text-1)] leading-snug">
-                          {attempt.title}
-                        </h4>
-                        <p className="text-[12px] font-medium text-[var(--text-3)] truncate max-w-[280px]">
-                          Source: {docName}
-                        </p>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="text-base font-bold text-[var(--text-1)]">
+                            Practice Quiz
+                          </h4>
+                          <span className="text-[9px] font-mono bg-[var(--bg-2)] text-[var(--text-3)] px-1.5 py-0.5 rounded border border-[var(--border)] font-medium">
+                            #{quiz.id.slice(0, 5).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <p className="text-[11px] font-semibold text-[var(--text-2)] flex items-center gap-1">
+                            <span className="text-sm">📄</span>
+                            <span className="truncate max-w-[200px]">{docName}</span>
+                          </p>
+                          <p className="text-[10px] font-medium text-[var(--text-4)]">
+                            Created {formattedDate}
+                          </p>
+                        </div>
                       </div>
-                      <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+
+                      {/* Completed badge */}
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-flex items-center gap-1.5 ${
                         attempt.completed 
-                          ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" 
-                          : "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                          ? "bg-[#10b981]/15 text-[#10b981]" 
+                          : "bg-amber-500/10 text-amber-500"
                       }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          attempt.completed ? "bg-[#10b981]" : "bg-amber-500"
+                        }`} />
                         {attempt.completed ? "Completed" : "Generated"}
                       </span>
                     </div>
 
-                    {/* Stats Matrix */}
-                    <div className="grid grid-cols-4 gap-4 bg-[var(--bg-2)]/30 rounded-xl p-3.5 border border-[var(--border)]/50">
-                      <div className="space-y-0.5 text-center">
-                        <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-4)]">MCQs</p>
-                        <p className="text-base font-extrabold text-[var(--text-1)]">{quiz.total_questions}</p>
+                    {/* Stats Rows */}
+                    <div className="border-t border-[var(--border)] pt-4 space-y-2">
+                      <div className="flex justify-between text-xs font-medium">
+                        <span className="text-[var(--text-3)]">Questions</span>
+                        <span className="text-[var(--text-1)]">{quiz.total_questions}</span>
                       </div>
-                      <div className="space-y-0.5 text-center">
-                        <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-4)]">Accuracy</p>
-                        <p className={`text-base font-extrabold ${
-                          attempt.completed
-                            ? attempt.accuracy >= 75
-                              ? "text-emerald-500"
-                              : attempt.accuracy >= 50
-                              ? "text-amber-500"
-                              : "text-red-500"
-                            : "text-[var(--text-3)]"
-                        }`}>
-                          {attempt.completed ? `${attempt.accuracy}%` : "N/A"}
-                        </p>
+                      <div className="flex justify-between text-xs font-medium">
+                        <span className="text-[var(--text-3)]">Accuracy</span>
+                        <span className="text-[var(--text-1)]">
+                          {attempt.completed ? `${attempt.accuracy}%` : "--:--"}
+                        </span>
                       </div>
-                      <div className="space-y-0.5 text-center">
-                        <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-4)]">Time</p>
-                        <p className="text-base font-extrabold text-[var(--text-1)] truncate">
-                          {attempt.completed ? formatTime(attempt.time_taken) : "N/A"}
-                        </p>
+                      <div className="flex justify-between text-xs font-medium">
+                        <span className="text-[var(--text-3)]">Duration</span>
+                        <span className="text-[var(--text-1)]">
+                          {attempt.completed ? formatTime(attempt.time_taken) : "--:--"}
+                        </span>
                       </div>
-                      <div className="space-y-0.5 text-center">
-                        <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-4)]">Level</p>
-                        <p className="text-base font-extrabold text-[var(--text-1)]">{attempt.difficulty}</p>
+                      <div className="flex justify-between text-xs font-medium">
+                        <span className="text-[var(--text-3)]">Difficulty</span>
+                        <span className="text-[var(--text-1)] capitalize">{attempt.difficulty}</span>
                       </div>
                     </div>
+
+                    {/* View Analytics link */}
+                    {attempt.completed && (
+                      <button
+                        onClick={() => router.push(`/chat?quizId=${quiz.id}&review=true`)}
+                        className="text-xs font-medium text-[var(--indigo-accent)] hover:underline flex items-center gap-1 mt-1 cursor-pointer"
+                      >
+                        View Analytics →
+                      </button>
+                    )}
                   </div>
 
                   {/* Actions Footer */}
-                  <div className="flex items-center justify-between pt-4.5 mt-4 border-t border-[var(--border)]">
-                    <span className="text-[11px] font-mono text-[var(--text-4)]">{formattedDate}</span>
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 mt-5 pt-4 border-t border-[var(--border)]">
+                    {attempt.completed ? (
                       <button
                         onClick={() => router.push(`/chat?quizId=${quiz.id}&review=true`)}
-                        disabled={!attempt.completed}
-                        className="px-3.5 py-1.5 rounded-lg border border-[var(--border)] text-xs font-bold text-[var(--text-2)] hover:text-[var(--indigo)] hover:border-[var(--indigo)] transition-all disabled:opacity-30 disabled:hover:text-[var(--text-2)] disabled:hover:border-[var(--border)] cursor-pointer"
+                        className="flex-1 py-2 text-center border border-[var(--border)] hover:bg-[var(--bg-2)] text-xs font-bold text-[var(--text-2)] rounded-lg transition-all cursor-pointer h-9 flex items-center justify-center"
                       >
                         Review
                       </button>
-                      <button
-                        onClick={() => router.push(`/chat?docId=${quiz.document_id}`)}
-                        className="px-3.5 py-1.5 rounded-lg bg-[var(--indigo)] text-white hover:bg-[var(--indigo)]/90 text-xs font-bold transition-all shadow-sm hover:shadow cursor-pointer"
-                      >
-                        Retake
-                      </button>
+                    ) : (
+                      <div className="flex-1 text-center py-2 text-xs font-medium text-[var(--text-3)] italic h-9 flex items-center justify-center border border-dashed border-[var(--border)] rounded-lg">
+                        Review unavailable
+                      </div>
+                    )}
+                    
+                    <button
+                      onClick={() => router.push(`/chat?docId=${quiz.document_id}`)}
+                      className="flex-1 py-2 text-center bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 hover:opacity-90 text-xs font-bold rounded-lg transition-all cursor-pointer h-9 flex items-center justify-center gap-1.5 btn-premium-shine"
+                    >
+                      <svg className="w-3.5 h-3.5 flex-shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 21l-.813-5.096L3 15l5.187-.904L9 9l.813 5.096L15 15l-5.187.904zM18 10.5l-.5 3-.5-3-3-.5 3-.5.5-3 .5 3 3 .5-3 .5zM19 19.5l-.25 1.5-.25-1.5-1.5-.25 1.5-.25.25-1.5.25 1.5 1.5.25-1.5.25z" />
+                      </svg>
+                      <span>Retake</span>
+                    </button>
+                    
+                    {/* PDF Report Download */}
+                    <button
+                      onClick={() => handleDownload(quiz)}
+                      disabled={!attempt.completed}
+                      className="p-2 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-2)] text-[var(--text-2)] transition-colors cursor-pointer disabled:opacity-30 group relative w-9 h-9 flex items-center justify-center"
+                      title="Download PDF Report"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                      </svg>
                       
-                      {/* PDF Report Download */}
-                      <button
-                        onClick={() => handleDownload(quiz)}
-                        disabled={!attempt.completed}
-                        className="p-2 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-2)] text-[var(--text-3)] hover:text-[var(--text-1)] transition-colors cursor-pointer disabled:opacity-30"
-                        title="Download PDF Report"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                        </svg>
-                      </button>
+                      {/* Custom Tooltip */}
+                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 bg-zinc-900 text-[10px] text-white rounded font-bold opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10 shadow">
+                        Download Report
+                      </span>
+                    </button>
 
-                      {/* Delete */}
-                      <button
-                        onClick={() => setQuizToDelete(quiz)}
-                        className="p-2 rounded-lg border border-red-500/10 bg-red-500/5 text-red-400 hover:bg-red-500/10 hover:text-red-500 transition-colors cursor-pointer"
-                        title="Delete Quiz"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
+                    {/* Delete */}
+                    <button
+                      onClick={() => setQuizToDelete(quiz)}
+                      className="p-2 rounded-lg border border-[var(--border)] hover:border-red-500/50 hover:bg-red-500/10 text-[var(--text-2)] hover:text-red-500 transition-all cursor-pointer w-9 h-9 flex items-center justify-center"
+                      title="Delete Quiz"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               );
@@ -359,11 +531,11 @@ export default function HistoryPage() {
 
       {/* Delete Confirmation Modal */}
       {quizToDelete && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
-          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[20px] max-w-[400px] w-full p-6 shadow-xl space-y-6 mx-4 animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-black/45 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
+          <div className="bg-[#121826] border border-[#24324a] rounded-xl max-w-[400px] w-full p-6 shadow-xl space-y-6 mx-4 animate-in zoom-in-95 duration-200">
             <div className="space-y-2">
-              <h3 className="text-base font-bold text-[var(--text-1)]">Delete Quiz Attempt</h3>
-              <p className="text-xs text-[var(--text-3)] leading-relaxed">
+              <h3 className="text-base font-bold text-[#f8fafc]">Delete Quiz Attempt</h3>
+              <p className="text-xs text-[#94a3b8] leading-relaxed font-medium">
                 Are you sure you want to delete this quiz history record? This action is permanent and cannot be undone.
               </p>
             </div>
@@ -371,14 +543,14 @@ export default function HistoryPage() {
               <button
                 onClick={() => setQuizToDelete(null)}
                 disabled={deleting}
-                className="px-4 py-2 border border-[var(--border)] rounded-lg text-xs font-semibold hover:bg-[var(--bg-2)] transition-all cursor-pointer"
+                className="px-4 py-2 border border-[#24324a] hover:bg-[#151d2f] text-xs font-bold text-[#cbd5e1] rounded-lg transition-all cursor-pointer h-9 flex items-center"
               >
                 Cancel
               </button>
               <button
                 onClick={triggerDeleteQuiz}
                 disabled={deleting}
-                className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer h-9"
               >
                 {deleting && (
                   <svg className="animate-spin h-3 w-3 text-white" fill="none" viewBox="0 0 24 24">
@@ -393,9 +565,45 @@ export default function HistoryPage() {
         </div>
       )}
 
+      {/* Clear All Confirmation Modal */}
+      {clearAllConfirm && (
+        <div className="fixed inset-0 bg-black/45 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
+          <div className="bg-[#121826] border border-[#24324a] rounded-xl max-w-[400px] w-full p-6 shadow-xl space-y-6 mx-4 animate-in zoom-in-95 duration-200">
+            <div className="space-y-2">
+              <h3 className="text-base font-bold text-[#f8fafc]">Clear Quiz History</h3>
+              <p className="text-xs text-[#94a3b8] leading-relaxed font-medium">
+                Are you sure you want to clear your entire quiz history? This will permanently delete all records, scores, and questions. This action is irreversible.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setClearAllConfirm(false)}
+                disabled={clearing}
+                className="px-4 py-2 border border-[#24324a] hover:bg-[#151d2f] text-xs font-bold text-[#cbd5e1] rounded-lg transition-all cursor-pointer h-9 flex items-center"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={triggerClearAll}
+                disabled={clearing}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer h-9"
+              >
+                {clearing && (
+                  <svg className="animate-spin h-3 w-3 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth={4} />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                )}
+                <span>Clear All History</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed bottom-5 right-5 z-50 flex items-center bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-4 py-3 rounded-lg shadow-lg border border-zinc-800 dark:border-slate-200 animate-in fade-in slide-in-from-bottom-5 duration-200">
+        <div className="fixed bottom-5 right-5 z-50 flex items-center bg-[#151d2f] text-[#f8fafc] px-4 py-3 rounded-lg shadow-lg border border-[#24324a] animate-in fade-in slide-in-from-bottom-5 duration-200">
           <span className="text-xs font-semibold">{toast.message}</span>
         </div>
       )}

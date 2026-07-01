@@ -41,13 +41,13 @@ function SettingSection({
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[18px] overflow-hidden">
       {/* Section Header */}
-      <div className="px-6 py-4 border-b border-[var(--border)] flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-[var(--bg-2)] flex items-center justify-center text-[var(--text-3)]">
+      <div className="px-6 py-4 border-b border-[var(--border)] flex items-center gap-3 bg-[var(--bg-2)]/20">
+        <div className="w-8 h-8 rounded-lg bg-[var(--bg-2)] flex items-center justify-center text-[var(--text-2)]">
           {icon}
         </div>
         <div>
-          <p className="text-sm font-bold text-[var(--text-1)]">{title}</p>
-          {description && <p className="text-[11px] text-[var(--text-4)] mt-0.5">{description}</p>}
+          <p className="text-base font-extrabold text-[var(--text-1)]">{title}</p>
+          {description && <p className="text-xs font-semibold text-[var(--text-3)] mt-0.5">{description}</p>}
         </div>
       </div>
       {/* Section Content */}
@@ -67,11 +67,11 @@ function SettingRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="px-6 py-4 flex items-center justify-between gap-6">
+    <div className="px-6 py-5 flex items-center justify-between gap-6">
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-semibold text-[var(--text-2)]">{label}</p>
+        <p className="text-sm font-extrabold text-[var(--text-1)]">{label}</p>
         {description && (
-          <p className="text-[11px] text-[var(--text-4)] mt-0.5 leading-relaxed">{description}</p>
+          <p className="text-[12px] font-semibold text-[var(--text-3)] mt-0.5 leading-relaxed">{description}</p>
         )}
       </div>
       <div className="flex-shrink-0">{children}</div>
@@ -94,10 +94,10 @@ function DangerRow({
   onClick: () => void;
 }) {
   return (
-    <div className="px-6 py-4 flex items-center justify-between gap-6">
+    <div className="px-6 py-5 flex items-center justify-between gap-6">
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-semibold text-[var(--text-2)]">{label}</p>
-        <p className="text-[11px] text-[var(--text-4)] mt-0.5 leading-relaxed">{description}</p>
+        <p className="text-sm font-extrabold text-[var(--text-1)]">{label}</p>
+        <p className="text-[12px] font-semibold text-[var(--text-3)] mt-0.5 leading-relaxed">{description}</p>
       </div>
       <button
         onClick={onClick}
@@ -112,8 +112,6 @@ function DangerRow({
     </div>
   );
 }
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -280,8 +278,8 @@ export default function SettingsPage() {
               </svg>
             </div>
             <div>
-              <p className="text-sm font-bold text-[var(--text-1)]">Signed In</p>
-              <p className="text-xs text-[var(--text-3)] mt-0.5 truncate max-w-[280px]">{userEmail || "—"}</p>
+              <p className="text-base font-extrabold text-[var(--text-1)]">Signed In</p>
+              <p className="text-sm font-semibold text-[var(--text-2)] mt-0.5 truncate max-w-[280px]">{userEmail || "—"}</p>
             </div>
           </div>
           <button
@@ -398,8 +396,8 @@ export default function SettingsPage() {
               </svg>
             </div>
             <div>
-              <p className="text-sm font-bold text-red-600 dark:text-red-400">Danger Zone</p>
-              <p className="text-[11px] text-red-500/70 dark:text-red-400/60 mt-0.5">These actions are permanent and cannot be undone.</p>
+              <p className="text-base font-extrabold text-red-600 dark:text-red-400">Danger Zone</p>
+              <p className="text-xs font-semibold text-red-500/80 dark:text-red-400/70 mt-0.5">These actions are permanent and cannot be undone.</p>
             </div>
           </div>
           <div className="divide-y divide-red-100 dark:divide-red-900/30">

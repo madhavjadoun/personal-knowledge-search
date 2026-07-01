@@ -20,7 +20,7 @@ export interface QuizReportData {
   questions: QuizReportQuestion[];
 }
 
-// ─── Colour Palette ───────────────────────────────────────────────────────────
+// --- Colour Palette ---
 const C = {
   black:    [20,  24,  32]  as [number, number, number],
   slate:    [80,  90, 105]  as [number, number, number],
@@ -48,7 +48,7 @@ export function downloadQuizReport(data: QuizReportData) {
   let y = 0;
   let pageNum = 1;
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
+  // -- Helpers --
 
   const setColor = (rgb: [number, number, number]) =>
     doc.setTextColor(rgb[0], rgb[1], rgb[2]);
@@ -80,7 +80,7 @@ export function downloadQuizReport(data: QuizReportData) {
     return false;
   };
 
-  // ── Footer ───────────────────────────────────────────────────────────────────
+  // -- Footer --
   const addFooter = () => {
     font("normal", 7.5);
     setColor(C.muted);
@@ -91,7 +91,7 @@ export function downloadQuizReport(data: QuizReportData) {
     doc.line(ML, PH - 12, PW - MR, PH - 12);
   };
 
-  // ── Cover Banner ─────────────────────────────────────────────────────────────
+  // -- Cover Banner --
   setFill([30, 35, 50]);
   doc.rect(0, 0, PW, 52, "F");
 
@@ -117,7 +117,7 @@ export function downloadQuizReport(data: QuizReportData) {
 
   y = 60;
 
-  // ── Stats Row ────────────────────────────────────────────────────────────────
+  // -- Stats Row --
   const cols = 5;
   const colW = TW / cols;
   const statsY = y;
@@ -129,16 +129,15 @@ export function downloadQuizReport(data: QuizReportData) {
   doc.roundedRect(ML, statsY, TW, statsH, 3, 3, "FD");
 
   const statItems = [
-    { label: "TOTAL MCQs",  value: String(data.totalQuestions),         color: C.black },
-    { label: "CORRECT",     value: String(data.correctAnswers),          color: C.green },
-    { label: "WRONG",       value: String(data.wrongAnswers),            color: C.red   },
-    { label: "ACCURACY",    value: `${data.accuracy}%`,                  color: C.indigo},
-    { label: "TIME TAKEN",  value: data.timeTaken,                       color: C.black },
+    { label: "TOTAL MCQs",  value: String(data.totalQuestions),  color: C.black  },
+    { label: "CORRECT",     value: String(data.correctAnswers),   color: C.green  },
+    { label: "WRONG",       value: String(data.wrongAnswers),     color: C.red    },
+    { label: "ACCURACY",    value: `${data.accuracy}%`,           color: C.indigo },
+    { label: "TIME TAKEN",  value: data.timeTaken,                color: C.black  },
   ];
 
   statItems.forEach((s, i) => {
     const cx = ML + i * colW + colW / 2;
-    // Divider
     if (i > 0) {
       setDraw(C.border);
       doc.setLineWidth(0.25);
@@ -155,7 +154,7 @@ export function downloadQuizReport(data: QuizReportData) {
 
   y = statsY + statsH + 10;
 
-  // ── Section Heading ───────────────────────────────────────────────────────────
+  // -- Section Heading --
   font("bold", 13);
   setColor(C.black);
   doc.text("Detailed Question Review", ML, y);
@@ -165,121 +164,131 @@ export function downloadQuizReport(data: QuizReportData) {
   doc.line(ML, y + 1, PW - MR, y + 1);
   y += 7;
 
-  // ── Questions ────────────────────────────────────────────────────────────────
+  // -- Questions --
   data.questions.forEach((q, idx) => {
     const isCorrect  = q.userAnswer === q.correctAnswer;
     const unanswered = !q.userAnswer;
 
-    // ── Estimate total height for this block ──────────────────────────────
+    // Estimate total height for this block
     font("bold", 10);
-    const qLines = textLines(`${idx + 1}. ${q.question}`, TW);
-    let blockH = qLines.length * lineH(10) + 5;
+    const qLines = textLines(`${idx + 1}. ${q.question}`, TW - 8);
+    let blockH = qLines.length * lineH(10) + 6;
 
-    // Options
-    q.options.forEach((opt, oi) => {
+    q.options.forEach((opt) => {
       font("normal", 9);
-      const ol = textLines(`${oi + 1}.  ${opt}`, TW - 10);
-      blockH += ol.length * lineH(9) + 2;
+      const ol = textLines(opt, TW - 18);
+      blockH += ol.length * lineH(9) + 2.5;
     });
 
-    // Answer row
-    blockH += 8;
-    if (!isCorrect) blockH += 8;
+    blockH += 9; // Correct Answer row
+    if (!isCorrect) blockH += 9; // Your Answer row
 
-    // Explanation
     if (!isCorrect && q.explanation) {
       font("normal", 8.5);
-      const el = textLines(q.explanation, TW - 14);
-      blockH += el.length * lineH(8.5) + 10;
+      const el = textLines(q.explanation, TW - 18);
+      blockH += el.length * lineH(8.5) + 12;
     }
 
-    blockH += 6; // gap after card
+    blockH += 8; // padding + gap
+
     needsPage(blockH);
 
-    // ── Card Background ───────────────────────────────────────────────────
+    // Card Background
+    const cardH = blockH - 8;
     const cardColor: [number,number,number] = isCorrect ? C.greenBg : unanswered ? C.surface : C.redBg;
     setFill(cardColor);
     setDraw(isCorrect ? C.green : unanswered ? C.border : C.red);
     doc.setLineWidth(0.25);
-    doc.roundedRect(ML, y, TW, blockH - 6, 2.5, 2.5, "FD");
+    doc.roundedRect(ML, y, TW, cardH, 2.5, 2.5, "FD");
 
     // Left accent bar
     setFill(isCorrect ? C.green : unanswered ? C.muted : C.red);
-    doc.rect(ML, y, 3, blockH - 6, "F");
+    doc.rect(ML, y, 3, cardH, "F");
 
-    const ix = ML + 6;
-    const iw = TW - 6;
-    y += 5;
+    const ix = ML + 7;
+    const iw = TW - 7;
+    y += 6;
 
-    // ── Question Text ─────────────────────────────────────────────────────
+    // Question Text
     font("bold", 10);
     setColor(C.black);
     const qWrapped = textLines(`${idx + 1}.  ${q.question}`, iw);
     doc.text(qWrapped, ix, y);
-    y += qWrapped.length * lineH(10) + 4;
+    y += qWrapped.length * lineH(10) + 5;
 
-    // ── Options 1–4 ───────────────────────────────────────────────────────
+    // Options 1-4
     q.options.forEach((opt, oi) => {
+      // Measure label width while bold, THEN switch font to render value
+      font("bold", 9);
+      setColor(C.slate);
       const label = `${oi + 1}.`;
-      const isThisCorrect = opt === q.correctAnswer;
-      const isThisUser    = opt === q.userAnswer;
+      const labelW = doc.getTextWidth(label);
+      doc.text(label, ix, y);
 
       font("normal", 9);
       setColor(C.slate);
-
-      const optLines = textLines(opt, iw - 12);
-      doc.text(label, ix, y);
-      doc.text(optLines, ix + 9, y);
-      y += optLines.length * lineH(9) + 2;
+      const optLines = textLines(opt, iw - labelW - 5);
+      doc.text(optLines, ix + labelW + 3, y);
+      y += optLines.length * lineH(9) + 2.5;
     });
 
-    y += 2;
+    y += 3;
 
-    // ── Answer Row(s) ─────────────────────────────────────────────────────
-    // Always show Correct Answer
+    // Correct Answer row
+    // IMPORTANT: measure width in bold BEFORE switching font to normal for value text
     font("bold", 8.5);
     setColor(C.green);
-    const correctLabel = "✓  Correct Answer:";
+    const correctLabel = "Correct Ans:";
+    const correctLabelW = doc.getTextWidth(correctLabel);
     doc.text(correctLabel, ix, y);
-    font("normal", 8.5);
-    doc.text(q.correctAnswer, ix + doc.getTextWidth(correctLabel) + 2, y);
-    y += 7;
 
-    // Only show Your Answer if it was wrong or unanswered
+    font("normal", 8.5);
+    setColor(C.green);
+    const correctVal = doc.splitTextToSize(q.correctAnswer, iw - correctLabelW - 5) as string[];
+    doc.text(correctVal[0] || "", ix + correctLabelW + 3, y);
+    y += 8;
+
+    // Your Answer row (only if wrong or unanswered)
     if (!isCorrect) {
       font("bold", 8.5);
       setColor(C.red);
-      const wrongLabel = unanswered ? "⚠  Your Answer:" : "✗  Your Answer:";
-      doc.text(wrongLabel, ix, y);
-      font("normal", 8.5);
-      setColor(C.red);
-      doc.text(unanswered ? "(Not answered)" : q.userAnswer, ix + doc.getTextWidth(wrongLabel) + 2, y);
-      y += 7;
+      const yourLabel = unanswered ? "Your Ans: (Not answered)" : "Your Ans:";
+      const yourLabelW = doc.getTextWidth(yourLabel);
+      doc.text(yourLabel, ix, y);
+
+      if (!unanswered) {
+        font("normal", 8.5);
+        setColor(C.red);
+        const yourVal = doc.splitTextToSize(q.userAnswer, iw - yourLabelW - 5) as string[];
+        doc.text(yourVal[0] || "", ix + yourLabelW + 3, y);
+      }
+      y += 8;
     }
 
-    // ── Explanation (only for wrong / unanswered) ─────────────────────────
+    // Explanation box (only for wrong/unanswered)
     if (!isCorrect && q.explanation) {
-      y += 1;
-      setFill([230, 232, 238] as any);
+      y += 2;
       font("normal", 8.5);
       setColor(C.slate);
 
-      const expLines = textLines(q.explanation, iw - 6);
-      const expH = expLines.length * lineH(8.5) + 6;
+      const expLines = textLines(q.explanation, iw - 10);
+      const expH = expLines.length * lineH(8.5) + 7;
 
       setFill([220, 225, 235] as any);
-      doc.roundedRect(ix, y, iw - 4, expH, 1.5, 1.5, "F");
-      doc.text(expLines, ix + 4, y + 4);
+      setDraw([200, 207, 218] as any);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(ix, y, iw - 4, expH, 1.5, 1.5, "FD");
+      doc.text(expLines, ix + 4, y + 4.5);
       y += expH + 3;
     }
 
-    y += 8; // gap between cards
+    y += 10; // gap between cards
   });
 
-  // ── Final Footer ─────────────────────────────────────────────────────────────
+  // Final Footer
   addFooter();
 
-  // ── Save ─────────────────────────────────────────────────────────────────────
+  // Save
   const safe = data.title.replace(/[^a-z0-9]/gi, "_").toLowerCase();
   doc.save(`quiz_report_${safe}.pdf`);
 }

@@ -71,6 +71,84 @@ Return JSON array only:"""
 
 # ── Internal Helpers ──────────────────────────────────────────────────────────
 
+def clean_and_repair_json(raw: str) -> str:
+    """
+    Cleans raw response from Gemini:
+    - Removes markdown fences (e.g. ```json, ```)
+    - Extracts only the JSON array content (everything from first '[' to last ']')
+    - Removes trailing commas safely without affecting string content
+    - Resolves unescaped newlines inside strings
+    """
+    if not raw:
+        return ""
+    
+    # 1. Extract JSON array block using first '[' and last ']'
+    start = raw.find("[")
+    end = raw.rfind("]")
+    if start == -1 or end == -1 or end <= start:
+        return ""
+    
+    json_str = raw[start : end + 1]
+
+    # 2. Safely remove trailing commas while respecting quotes and escape characters
+    in_string = False
+    escape = False
+    chars = list(json_str)
+    i = 0
+    n = len(chars)
+    while i < n:
+        c = chars[i]
+        if escape:
+            escape = False
+            i += 1
+            continue
+        if c == '\\':
+            escape = True
+            i += 1
+            continue
+        if c == '"':
+            in_string = not in_string
+            i += 1
+            continue
+        if not in_string:
+            if c == ',':
+                # look ahead to see if the next non-whitespace char is ] or }
+                j = i + 1
+                while j < n and chars[j].isspace():
+                    j += 1
+                if j < n and chars[j] in (']', '}'):
+                    # Replace trailing comma with space
+                    chars[i] = ' '
+        i += 1
+    json_str = "".join(chars)
+
+    # 3. Escape real newlines inside JSON string literals
+    in_string = False
+    escape = False
+    chars = list(json_str)
+    i = 0
+    n = len(chars)
+    while i < n:
+        c = chars[i]
+        if escape:
+            escape = False
+            i += 1
+            continue
+        if c == '\\':
+            escape = True
+            i += 1
+            continue
+        if c == '"':
+            in_string = not in_string
+            i += 1
+            continue
+        if in_string and c == '\n':
+            chars[i] = '\\n'
+        i += 1
+    
+    return "".join(chars)
+
+
 def _query_and_validate(prompt: str) -> list[dict[str, Any]]:
     """Helper to query Gemini, extract, and validate questions."""
     last_exc = None
@@ -106,8 +184,7 @@ def _query_and_validate(prompt: str) -> list[dict[str, Any]]:
 
             if response.status_code == 429:
                 print(f"[gemini_client] {label} hit 429 quota limit, rotating key...")
-                last_exc = Exception("429 rate limit or quota exceeded")
-                continue
+                raise Exception("429 rate limit or quota exceeded")
 
             response.raise_for_status()
             res_json = response.json()
@@ -129,48 +206,43 @@ def _query_and_validate(prompt: str) -> list[dict[str, Any]]:
                 raise KeyError("API response missing 'candidates' block and 'error' message")
 
             print(f"[gemini_client] Response received — {len(raw)} chars")
-            break
+
+            # Clean JSON
+            json_str = clean_and_repair_json(raw)
+            if not json_str:
+                raise ValueError("No valid JSON array boundaries found in output")
+
+            # Parse JSON
+            try:
+                questions_raw = json.loads(json_str)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"JSON parsing error: {exc}")
+
+            if not isinstance(questions_raw, list):
+                raise ValueError("Parsed JSON is not a list")
+
+            valid: list[dict[str, Any]] = []
+            for i, q in enumerate(questions_raw):
+                if not isinstance(q, dict):
+                    continue
+                if not all(k in q for k in ("question", "options", "correct", "explanation")):
+                    continue
+                options = q["options"]
+                if not isinstance(options, list) or len(options) != 4:
+                    continue
+                if q["correct"] not in options:
+                    continue
+                valid.append(q)
+            
+            print(f"[gemini_client] Parse success: parsed {len(valid)} valid questions.")
+            return valid
 
         except Exception as exc:
-            print(f"[gemini_client] Error using {label}: {exc}")
+            print(f"[gemini_client] Parse failure or API error using {label}: {exc}. Retry reason: rotating to next API key.")
             last_exc = exc
             continue
     else:
         raise RuntimeError(f"All Gemini keys failed. Last error: {last_exc}")
-
-    # Extract JSON array
-    start = raw.find("[")
-    end = raw.rfind("]")
-    if start == -1 or end == -1 or end <= start:
-        print(f"[gemini_client] No valid JSON array found in Gemini response. Raw: {raw[:300]}")
-        return []
-
-    json_str = raw[start : end + 1]
-
-    try:
-        questions_raw = json.loads(json_str)
-    except json.JSONDecodeError as exc:
-        print(f"[gemini_client] Failed to parse JSON from Gemini response: {exc}. String: {json_str[:300]}")
-        return []
-
-    if not isinstance(questions_raw, list):
-        print("[gemini_client] Response from Gemini parsed but is not a list.")
-        return []
-
-    valid: list[dict[str, Any]] = []
-    for i, q in enumerate(questions_raw):
-        if not isinstance(q, dict):
-            continue
-        if not all(k in q for k in ("question", "options", "correct", "explanation")):
-            continue
-        options = q["options"]
-        if not isinstance(options, list) or len(options) != 4:
-            continue
-        if q["correct"] not in options:
-            continue
-        valid.append(q)
-    
-    return valid
 
 
 # ── Public API ────────────────────────────────────────────────────────────────

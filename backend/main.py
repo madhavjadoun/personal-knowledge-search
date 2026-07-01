@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import documents, quiz
+from routers import documents, quiz, credits
 
 # ── Load environment variables from .env ──────────────────────────────────────
 load_dotenv()
@@ -30,7 +30,11 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
+        "http://localhost:3001",
         "http://localhost:3002",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "http://127.0.0.1:3002",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -39,7 +43,8 @@ app.add_middleware(
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 app.include_router(documents.router, prefix="/documents", tags=["Documents"])
-app.include_router(quiz.router, prefix="/quiz", tags=["Quiz"])
+app.include_router(quiz.router,      prefix="/quiz",      tags=["Quiz"])
+app.include_router(credits.router,   prefix="/credits",   tags=["Credits"])
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

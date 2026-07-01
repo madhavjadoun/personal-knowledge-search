@@ -11,6 +11,7 @@ Tables used:
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 from typing import Any
 
 from dotenv import load_dotenv
@@ -250,3 +251,203 @@ def get_quiz_history(document_id: str) -> list[dict[str, Any]]:
     quizzes = result.data or []
     print(f"[supabase] Found {len(quizzes)} quiz(zes) for document '{document_id}'")
     return quizzes
+
+
+def update_quiz(quiz_id: str, status: str, total_questions: int) -> dict[str, Any]:
+    """
+    Update a quiz attempt status and question count.
+
+    Returns:
+        The updated quiz row dict.
+    """
+    client = get_client()
+    print(f"[supabase] Updating quiz_id='{quiz_id}' status and total_questions={total_questions}")
+    result = (
+        client.table("quizzes")
+        .update({
+            "status": status,
+            "total_questions": total_questions
+        })
+        .eq("id", quiz_id)
+        .execute()
+    )
+    if not result.data:
+        raise RuntimeError(f"Failed to update quiz row. Response: {result}")
+    return result.data[0]
+
+
+def check_document_ownership(document_id: str, user_id: str) -> bool:
+    """
+    Check if a document exists and belongs to the given user.
+    """
+    client = get_client()
+    result = (
+        client.table("documents")
+        .select("id")
+        .eq("id", document_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    return bool(result.data)
+
+
+def check_quiz_ownership(quiz_id: str, user_id: str) -> bool:
+    """
+    Check if a quiz exists and its parent document belongs to the given user.
+    """
+    client = get_client()
+    quiz_res = (
+        client.table("quizzes")
+        .select("document_id")
+        .eq("id", quiz_id)
+        .execute()
+    )
+    if not quiz_res.data:
+        return False
+    doc_id = quiz_res.data[0].get("document_id")
+    if not doc_id:
+        return False
+    return check_document_ownership(doc_id, user_id)
+
+
+def delete_quiz(quiz_id: str) -> None:
+    """
+    Delete a quiz header and all its associated questions using the service role client.
+    """
+    client = get_client()
+    print(f"[supabase] Deleting quiz_questions for quiz_id='{quiz_id}'")
+    client.table("quiz_questions").delete().eq("quiz_id", quiz_id).execute()
+    print(f"[supabase] Deleting quiz header for quiz_id='{quiz_id}'")
+    client.table("quizzes").delete().eq("id", quiz_id).execute()
+
+
+def delete_all_user_quizzes(user_id: str) -> None:
+    """
+    Delete all quizzes for documents owned by the given user.
+    """
+    client = get_client()
+    print(f"[supabase] Deleting all quizzes for user_id='{user_id}'")
+    # 1. Fetch user's documents
+    docs_res = client.table("documents").select("id").eq("user_id", user_id).execute()
+    doc_ids = [d["id"] for d in (docs_res.data or [])]
+    if not doc_ids:
+        return
+
+    # 2. Fetch quizzes to delete their questions
+    quizzes_res = client.table("quizzes").select("id").in_("document_id", doc_ids).execute()
+    quiz_ids = [q["id"] for q in (quizzes_res.data or [])]
+    if not quiz_ids:
+        return
+
+    # 3. Delete questions first
+    client.table("quiz_questions").delete().in_("quiz_id", quiz_ids).execute()
+    # 4. Delete quizzes
+    client.table("quizzes").delete().in_("document_id", doc_ids).execute()
+
+
+# ── Daily Credit System ───────────────────────────────────────────────────────
+
+def get_or_create_daily_credits(user_id: str) -> dict[str, Any]:
+    """
+    Return today's credit row for the user, creating it if it doesn't exist yet.
+
+    Uses upsert with conflict on (user_id, credit_date) so concurrent requests
+    are safe — only one row per user per UTC calendar day is ever created.
+
+    Returns a dict with keys:
+        user_id        (str)
+        credit_date    (str, ISO date)
+        credits_used   (int)
+        credits_limit  (int)
+    """
+    client = get_client()
+
+    # Use Python to compute today's UTC date as an ISO string (e.g. "2026-07-01").
+    # The Supabase Python client sends values as JSON — SQL expressions like
+    # "now()::date" are NOT evaluated; they're treated as plain strings.
+    today_utc = datetime.now(tz=timezone.utc).date().isoformat()
+
+    # Upsert: if the row for today already exists, do nothing (ignore_duplicates=True).
+    # Then fetch to get the current state.
+    (
+        client.table("user_daily_credits")
+        .upsert(
+            {
+                "user_id":       user_id,
+                "credit_date":   today_utc,
+                "credits_used":  0,
+                "credits_limit": 30,
+            },
+            on_conflict="user_id,credit_date",
+            ignore_duplicates=True,   # never overwrite an existing row's credits_used
+        )
+        .execute()
+    )
+
+    # Always re-fetch the authoritative row to get the real credits_used value.
+    fetch_result = (
+        client.table("user_daily_credits")
+        .select("user_id, credit_date, credits_used, credits_limit, updated_at")
+        .eq("user_id", user_id)
+        .order("credit_date", desc=True)
+        .limit(1)
+        .execute()
+    )
+
+    if not fetch_result.data:
+        raise RuntimeError(f"Credit row not found after upsert for user_id='{user_id}'")
+
+    row = fetch_result.data[0]
+    print(
+        f"[credits] user_id='{user_id}' | date={row['credit_date']} | "
+        f"used={row['credits_used']}/{row['credits_limit']}"
+    )
+    return row
+
+
+def consume_credits(user_id: str, amount: int) -> dict[str, Any]:
+    """
+    Atomically increment credits_used by `amount` for today's credit row.
+
+    Raises:
+        ValueError: if the user has fewer than `amount` credits remaining.
+
+    Returns:
+        The updated credit row dict.
+    """
+    # Re-read the authoritative row inside consume to avoid TOCTOU race conditions.
+    row = get_or_create_daily_credits(user_id)
+
+    credits_used  = row["credits_used"]
+    credits_limit = row["credits_limit"]
+    remaining     = credits_limit - credits_used
+
+    if amount > remaining:
+        raise ValueError(
+            f"Insufficient credits: you need {amount} credits but only have {remaining} remaining today. "
+            f"Your {credits_limit} daily credits reset at midnight UTC."
+        )
+
+    client = get_client()
+    new_used = credits_used + amount
+
+    update_result = (
+        client.table("user_daily_credits")
+        .update({"credits_used": new_used})
+        .eq("user_id", user_id)
+        .eq("credit_date", row["credit_date"])
+        .execute()
+    )
+
+    if not update_result.data:
+        raise RuntimeError(f"Failed to update credits for user_id='{user_id}'. Response: {update_result}")
+
+    updated_row = update_result.data[0]
+    print(
+        f"[credits] Consumed {amount} credit(s) for user_id='{user_id}' | "
+        f"new total used: {updated_row['credits_used']}/{updated_row['credits_limit']}"
+    )
+    return updated_row
+
+
+

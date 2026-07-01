@@ -61,6 +61,15 @@ export default function QuizPage() {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [timeTaken, setTimeTaken] = useState<number>(0);
 
+  // Daily credit system
+  const [creditsInfo, setCreditsInfo] = useState<{
+    used: number;
+    limit: number;
+    remaining: number;
+    resetAt: string;
+  } | null>(null);
+  const [isCreditsError, setIsCreditsError] = useState(false);
+
   const showToast = (message: string, type: "error" | "success" = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
@@ -91,6 +100,30 @@ export default function QuizPage() {
           if (docIdParam) {
             setSelectedDocId(docIdParam);
           }
+        }
+
+        // Fetch daily credit balance
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          if (token) {
+            let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+            if (apiUrl.includes("localhost")) apiUrl = apiUrl.replace("localhost", "127.0.0.1");
+            const credRes = await fetch(`${apiUrl}/credits/status`, {
+              headers: { "Authorization": `Bearer ${token}` },
+            });
+            if (credRes.ok) {
+              const credData = await credRes.json();
+              setCreditsInfo({
+                used:      credData.credits_used,
+                limit:     credData.credits_limit,
+                remaining: credData.credits_remaining,
+                resetAt:   credData.reset_at,
+              });
+            }
+          }
+        } catch (credErr) {
+          console.warn("Failed to fetch credit status:", credErr);
         }
       } catch (err) {
         console.error("Failed to load documents:", err);
@@ -128,13 +161,29 @@ export default function QuizPage() {
       if (quizIdParam) {
         try {
           setGeneratingQuiz(true);
-          const { data: quizData, error } = await supabase
-            .from("quizzes")
-            .select("*, quiz_questions(*)")
-            .eq("id", quizIdParam)
-            .single();
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          if (!token) {
+            throw new Error("Unable to retrieve authentication token. Please sign in again.");
+          }
 
-          if (error || !quizData) throw error || new Error("Quiz not found");
+          let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+          if (apiUrl.includes("localhost")) {
+            apiUrl = apiUrl.replace("localhost", "127.0.0.1");
+          }
+
+          const res = await fetch(`${apiUrl}/quiz/${quizIdParam}`, {
+            headers: {
+              "Authorization": `Bearer ${token}`,
+            },
+          });
+
+          if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.detail || "Server failed to load quiz details.");
+          }
+
+          const quizData = await res.json();
 
           const dbQuestions = (quizData.quiz_questions || []).sort((a: any, b: any) => a.order_index - b.order_index);
           const mappedQuestions = dbQuestions.map((q: any) => ({
@@ -181,6 +230,7 @@ export default function QuizPage() {
     setDocValidationError(false);
     setMcqValidationError(false);
     setErrorMsg(null);
+    setIsCreditsError(false);
 
     let hasError = false;
     if (!selectedDocId) {
@@ -209,23 +259,50 @@ export default function QuizPage() {
     showToast("Generating your quiz...", "success");
 
     try {
-      if (!userId) {
-        throw new Error("You must be signed in to generate a quiz.");
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        throw new Error("Unable to retrieve authentication token. Please sign in again.");
       }
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/quiz/generate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({
           document_id: selectedDocId,
-          user_id: userId,
           num_questions: numQuestions,
         }),
       });
 
       const data = await res.json();
+
+      // Handle 402 Insufficient Credits specifically
+      if (res.status === 402) {
+        // Refresh credits state so the badge updates
+        if (data.detail) {
+          // Extract remaining from error detail if possible, else refetch
+          try {
+            const { data: { session: s2 } } = await supabase.auth.getSession();
+            if (s2?.access_token) {
+              let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+              if (apiUrl.includes("localhost")) apiUrl = apiUrl.replace("localhost", "127.0.0.1");
+              const credRes = await fetch(`${apiUrl}/credits/status`, {
+                headers: { "Authorization": `Bearer ${s2.access_token}` },
+              });
+              if (credRes.ok) {
+                const credData = await credRes.json();
+                setCreditsInfo({ used: credData.credits_used, limit: credData.credits_limit, remaining: credData.credits_remaining, resetAt: credData.reset_at });
+              }
+            }
+          } catch (_) {/* silent */}
+        }
+        setIsCreditsError(true);
+        throw new Error(data.detail || "You have run out of daily credits.");
+      }
+
       if (!res.ok || !data.questions) {
         throw new Error(data.detail || "Quiz generation failed.");
       }
@@ -238,6 +315,15 @@ export default function QuizPage() {
 
       setQuestions(formattedQuestions);
       setCurrentQuizId(data.quiz_id);
+
+      // Update credits badge optimistically from API response
+      if (typeof data.credits_remaining === "number") {
+        setCreditsInfo(prev => prev ? ({
+          ...prev,
+          remaining: data.credits_remaining,
+          used: prev.limit - data.credits_remaining,
+        }) : null);
+      }
     } catch (err) {
       console.error("Quiz error:", err);
       setErrorMsg(err instanceof Error ? err.message : "Something went wrong.");
@@ -292,15 +378,35 @@ export default function QuizPage() {
           user_answers: stringifiedAnswers
         };
 
-        const { error } = await supabase
-          .from("quizzes")
-          .update({
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) {
+          throw new Error("Unable to retrieve authentication token. Please sign in again.");
+        }
+
+        // Call backend API /quiz/submit to update the quiz securely with service role key after verifying ownership
+        let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+        if (apiUrl.includes("localhost")) {
+          apiUrl = apiUrl.replace("localhost", "127.0.0.1");
+        }
+        const submitRes = await fetch(`${apiUrl}/quiz/submit`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            quiz_id: currentQuizId,
             status: JSON.stringify(attemptData),
             total_questions: questions.length,
-          })
-          .eq("id", currentQuizId);
+          }),
+        });
 
-        if (error) throw error;
+        if (!submitRes.ok) {
+          const errData = await submitRes.json();
+          throw new Error(errData.detail || "Server failed to save quiz attempt.");
+        }
+
         showToast("Quiz submitted & saved to history!", "success");
       } catch (err) {
         console.error("Failed to save quiz attempt:", err);
@@ -351,7 +457,38 @@ export default function QuizPage() {
         
         {/* Setup Card */}
         <div className="bg-[var(--surface)] border border-[var(--border)] shadow-sm w-full max-w-[1180px] mx-auto hover:-translate-y-[2px] hover:shadow-lg transition-all duration-250" style={{ padding: "28px", borderRadius: "18px" }}>
-          <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--text-4)]" style={{ marginBottom: "24px" }}>Configure Quiz</h3>
+          
+          {/* Card header row: title + credit badge */}
+          <div className="flex items-center justify-between" style={{ marginBottom: "24px" }}>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--text-4)]">Configure Quiz</h3>
+            {creditsInfo !== null && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[var(--text-4)]">Daily Credits</span>
+                <span
+                  className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
+                  style={{
+                    background: creditsInfo.remaining === 0
+                      ? "rgba(244,63,94,0.1)"
+                      : creditsInfo.remaining <= 10
+                      ? "rgba(251,191,36,0.12)"
+                      : "rgba(99,102,241,0.1)",
+                    color: creditsInfo.remaining === 0
+                      ? "#f43f5e"
+                      : creditsInfo.remaining <= 10
+                      ? "#d97706"
+                      : "var(--indigo)",
+                    border: `1px solid ${creditsInfo.remaining === 0 ? "rgba(244,63,94,0.25)" : creditsInfo.remaining <= 10 ? "rgba(251,191,36,0.3)" : "rgba(99,102,241,0.2)"}`,
+                  }}
+                >
+                  {/* Bolt icon */}
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                  </svg>
+                  {creditsInfo.remaining} / {creditsInfo.limit} left
+                </span>
+              </div>
+            )}
+          </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[2fr_160px_140px_200px] gap-5 items-end w-full">
             
@@ -431,6 +568,7 @@ export default function QuizPage() {
                 onChange={(e) => {
                   setMcqValidationError(false);
                   setErrorMsg(null);
+                  setIsCreditsError(false);
                   const val = e.target.value;
                   if (val === "") {
                     setNumQuestions(0);
@@ -450,10 +588,25 @@ export default function QuizPage() {
                   });
                 }}
                 className={`w-full border ${
-                  mcqValidationError ? "border-red-500" : "border-[var(--border)] focus:border-[var(--indigo)] focus:ring-2 focus:ring-[var(--indigo)]/10"
+                  mcqValidationError
+                    ? "border-red-500"
+                    : creditsInfo && numQuestions > creditsInfo.remaining && numQuestions > 0
+                    ? "border-amber-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/10"
+                    : "border-[var(--border)] focus:border-[var(--indigo)] focus:ring-2 focus:ring-[var(--indigo)]/10"
                 } bg-[var(--surface)] px-4 text-base font-bold text-[var(--text-1)] focus:outline-none transition-all duration-250 hover:border-slate-300 dark:hover:border-zinc-700 disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                 style={{ height: "48px", borderRadius: "12px" }}
               />
+              {/* Real-time credit warning under the input */}
+              {creditsInfo && numQuestions > 0 && numQuestions > creditsInfo.remaining && (
+                <div className="flex items-center gap-1.5 mt-1.5 animate-in fade-in duration-150">
+                  <svg className="w-3 h-3 flex-shrink-0" style={{ color: "#d97706" }} fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-[11px] font-semibold" style={{ color: "#d97706" }}>
+                    Only {creditsInfo.remaining} credit{creditsInfo.remaining !== 1 ? "s" : ""} left today
+                  </span>
+                </div>
+              )}
             </div>
 
 
@@ -488,17 +641,47 @@ export default function QuizPage() {
 
           {/* Validation/Errors */}
           {errorMsg && (
-            <div className="mt-5 text-xs font-semibold flex items-center gap-2 px-3.5 py-2.5 rounded-lg border-l-2 animate-in fade-in duration-200"
-                 style={{
-                   backgroundColor: "rgba(244, 63, 94, 0.05)",
-                   borderColor: "rgba(244, 63, 94, 0.4)",
-                   color: "var(--red, #f43f5e)",
-                 }}>
-              <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <span className="leading-tight">{errorMsg}</span>
-            </div>
+            isCreditsError ? (
+              /* ── Credits exhausted — special amber banner ── */
+              <div
+                className="mt-5 flex items-start gap-3 px-4 py-3.5 rounded-xl border animate-in fade-in duration-200"
+                style={{
+                  backgroundColor: "rgba(251, 191, 36, 0.08)",
+                  borderColor: "rgba(251, 191, 36, 0.35)",
+                }}
+              >
+                {/* Bolt icon */}
+                <div className="flex-shrink-0 mt-0.5" style={{ color: "#d97706" }}>
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-xs font-bold" style={{ color: "#d97706" }}>Daily credit limit reached</span>
+                  <span className="text-xs" style={{ color: "#92400e", opacity: 0.85 }}>
+                    You&apos;ve used all {creditsInfo?.limit ?? 30} of your free credits for today.
+                    Your credits reset at midnight UTC
+                    {creditsInfo?.resetAt ? (() => {
+                      const t = new Date(creditsInfo.resetAt);
+                      return ` (${t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} your time)`;
+                    })() : "."}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              /* ── Generic error ── */
+              <div className="mt-5 text-xs font-semibold flex items-center gap-2 px-3.5 py-2.5 rounded-lg border-l-2 animate-in fade-in duration-200"
+                   style={{
+                     backgroundColor: "rgba(244, 63, 94, 0.05)",
+                     borderColor: "rgba(244, 63, 94, 0.4)",
+                     color: "var(--red, #f43f5e)",
+                   }}>
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span className="leading-tight">{errorMsg}</span>
+              </div>
+            )
           )}
         </div>
 

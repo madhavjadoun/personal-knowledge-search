@@ -196,8 +196,10 @@ export default function DocumentsPage() {
         clearInterval(progressInterval);
         setUploading(false);
         setProgress(0);
-        alert("Authentication error: You must be signed in to upload. Redirecting...");
-        window.location.href = "/login";
+        showToast("Authentication required. Please sign in to upload documents.", "error");
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 2000);
         return;
       }
 
