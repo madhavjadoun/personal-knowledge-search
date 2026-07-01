@@ -451,14 +451,14 @@ export default function DocumentsPage() {
                             {ext}
                           </span>
                           <span
-                            className="text-[20px] font-bold text-[var(--text-1)] truncate leading-7"
+                            className="text-[15px] font-bold text-[var(--text-1)] truncate leading-6"
                             title={doc.file_name}
                           >
                             {doc.file_name}
                           </span>
                         </div>
 
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-400/10 border border-emerald-500/20 dark:border-emerald-400/20 px-1.5 py-0.5 rounded-md flex-shrink-0 leading-4">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--text-3)] border border-[var(--border)] px-1.5 py-0.5 rounded-md flex-shrink-0 leading-4">
                           Synced
                         </span>
                       </div>

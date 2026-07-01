@@ -741,5 +741,80 @@ p { color: var(--text-3); }
   animation: progress-loop 1.8s infinite cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Custom Toggle Control classes */
+.toggle-control {
+  display: block;
+  position: relative;
+  width: 36px;
+  height: 20px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-control input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.toggle-control input:checked ~ .control {
+  background-color: black;
+}
+
+.toggle-control input:checked ~ .control:after {
+  left: 18px; /* width (36) - size (16) - gutter (2) */
+}
+
+.toggle-control .control {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 20px;
+  width: 36px;
+  border-radius: 10px;
+  background-color: darkgray;
+  transition: background-color 0.15s ease-in;
+}
+
+.toggle-control .control:after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  transition: left 0.15s ease-in;
+}
+
+/* Custom premium footer layout grid */
+.custom-footer-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 40px;
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .custom-footer-grid {
+    grid-template-columns: 2fr 1fr 1fr 1.2fr !important;
+    gap: 80px !important;
+  }
+}
+
+.custom-footer-container {
+  max-width: 1400px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding: 80px 40px !important;
+}
+
+.custom-footer-col-min {
+  min-width: 180px;
+}
+
 
 

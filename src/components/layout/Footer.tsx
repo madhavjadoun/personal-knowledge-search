@@ -90,10 +90,10 @@ export default function Footer() {
         <div className="mt-12 border-t border-(--card-border) pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-400 dark:text-zinc-500">
           <p>© {currentYear} Personal Knowledge Search Engine. All rights reserved.</p>
           <div className="flex gap-6">
-            <a href="#" className="hover:text-(--foreground) transition-colors duration-200">
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-(--foreground) transition-colors duration-200">
               Privacy Policy
             </a>
-            <a href="#" className="hover:text-(--foreground) transition-colors duration-200">
+            <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-(--foreground) transition-colors duration-200">
               Terms of Service
             </a>
           </div>

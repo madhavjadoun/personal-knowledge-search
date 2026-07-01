@@ -76,8 +76,8 @@ function LoginContent() {
       setErrorMessage("Please enter your password.");
       return;
     }
-    if (mode === "signup" && !agreeTerms) {
-      setErrorMessage("You must agree to the Terms of Service.");
+    if (!agreeTerms) {
+      setErrorMessage("You must agree to the Terms of Service and Privacy Policy.");
       return;
     }
 
@@ -126,6 +126,10 @@ function LoginContent() {
     e.preventDefault();
     setErrorMessage("");
     setSuccessMessage("");
+    if (!agreeTerms) {
+      setErrorMessage("You must agree to the Terms of Service and Privacy Policy.");
+      return;
+    }
     setGoogleLoading(true);
     
     try {
@@ -472,38 +476,39 @@ function LoginContent() {
                 </div>
 
                 {/* Extra Form Actions */}
-                {mode === "signin" ? (
-                  <div className="flex items-center justify-between pt-1 ml-4">
-                    <label className="flex items-center gap-2 text-xs text-[#64748B] cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={rememberMe}
-                        onChange={(e) => setRememberMe(e.target.checked)}
-                        disabled={loading || googleLoading}
-                        className="h-4 w-4 rounded-full border-[#E2E8F0] text-[#5B6EFF] focus:ring-[#5B6EFF] cursor-pointer bg-[#FAFBFC]"
-                      />
-                      <span>Remember me</span>
+                <div className="space-y-4 pt-1 ml-4">
+                  {mode === "signin" && (
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center gap-2 text-xs text-[#64748B] cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          disabled={loading || googleLoading}
+                          className="h-4 w-4 rounded-full border-[#E2E8F0] text-[#5B6EFF] focus:ring-[#5B6EFF] cursor-pointer bg-[#FAFBFC]"
+                        />
+                        <span>Remember me</span>
+                      </label>
+                    </div>
+                  )}
+
+                  <div className="flex items-start gap-2.5 text-xs text-[#64748B] select-none">
+                    <input
+                      type="checkbox"
+                      id="agreeTerms"
+                      checked={agreeTerms}
+                      onChange={(e) => setAgreeTerms(e.target.checked)}
+                      disabled={loading || googleLoading}
+                      className="h-4 w-4 rounded border-[#E2E8F0] text-[#5B6EFF] focus:ring-[#5B6EFF] mt-0.5 cursor-pointer bg-[#FAFBFC] flex-shrink-0"
+                    />
+                    <label htmlFor="agreeTerms" className="leading-snug cursor-pointer font-medium">
+                      By signing in or creating an account, you agree to the{" "}
+                      <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#5B6EFF] hover:underline">Terms of Service</a>
+                      {" "}and{" "}
+                      <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#5B6EFF] hover:underline">Privacy Policy</a>.
                     </label>
                   </div>
-                ) : (
-                  <div className="pt-1 ml-4">
-                    <label className="flex items-start gap-2.5 text-xs text-[#64748B] cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={agreeTerms}
-                        onChange={(e) => setAgreeTerms(e.target.checked)}
-                        disabled={loading || googleLoading}
-                        className="h-4 w-4 rounded-full border-[#E2E8F0] text-[#5B6EFF] focus:ring-[#5B6EFF] mt-0.5 cursor-pointer bg-[#FAFBFC]"
-                      />
-                      <span className="leading-snug">
-                        I agree to the{" "}
-                        <a href="#" className="font-semibold text-[#5B6EFF] hover:underline">Terms of Service</a>
-                        {" "}and{" "}
-                        <a href="#" className="font-semibold text-[#5B6EFF] hover:underline">Privacy Policy</a>.
-                      </span>
-                    </label>
-                  </div>
-                )}
+                </div>
 
                 {/* Submit CTA button */}
                 <motion.button
@@ -582,9 +587,9 @@ function LoginContent() {
             <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[10px] font-medium text-[#64748B]">
               <span>Protected by reCAPTCHA</span>
               <span className="text-slate-300">•</span>
-              <a href="#" className="hover:underline">Privacy Policy</a>
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:underline">Privacy Policy</a>
               <span className="text-slate-300">•</span>
-              <a href="#" className="hover:underline">Terms of Service</a>
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:underline">Terms of Service</a>
             </div>
           </div>
         </div>

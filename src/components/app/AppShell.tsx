@@ -85,9 +85,11 @@ interface AppShellProps {
   title: string;
   subtitle?: string;
   action?: React.ReactNode;
+  publicPage?: boolean;
+  noSidebar?: boolean;
 }
 
-export default function AppShell({ children, title, subtitle, action }: AppShellProps) {
+export default function AppShell({ children, title, subtitle, action, publicPage = false, noSidebar = false }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -106,7 +108,14 @@ export default function AppShell({ children, title, subtitle, action }: AppShell
     const checkUser = async () => {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) {
-        if (mounted) router.push("/login");
+        if (publicPage) {
+          if (mounted) {
+            setUser(null);
+            setUserLoading(false);
+          }
+        } else {
+          if (mounted) router.push("/login");
+        }
       } else {
         if (mounted) {
           setUser(currentUser);
@@ -119,7 +128,11 @@ export default function AppShell({ children, title, subtitle, action }: AppShell
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
-        router.push("/login");
+        if (!publicPage) {
+          router.push("/login");
+        } else {
+          setUser(null);
+        }
       } else if (session?.user) {
         setUser(session.user);
         setUserLoading(false);
@@ -130,7 +143,7 @@ export default function AppShell({ children, title, subtitle, action }: AppShell
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [router]);
+  }, [router, publicPage]);
 
   useEffect(() => {
     setTheme(document.documentElement.classList.contains("dark") ? "dark" : "light");
@@ -227,45 +240,65 @@ export default function AppShell({ children, title, subtitle, action }: AppShell
       </nav>
 
       {/* Bottom section */}
-      <div style={{ borderTop: "1px solid var(--border)" }} className="p-3.5">
+      <div style={{ borderTop: "1px solid var(--border)" }} className="p-3.5 space-y-3">
+        {/* Footer links */}
+        <div className="relative z-20 flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[10px] font-semibold text-[var(--text-3)] select-none">
+          <a href="/faq" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-1)] transition-colors relative z-30">FAQ</a>
+          <span className="text-[var(--border)]">•</span>
+          <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-1)] transition-colors relative z-30">Privacy</a>
+          <span className="text-[var(--border)]">•</span>
+          <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-1)] transition-colors relative z-30">Terms</a>
+          <span className="text-[var(--border)]">•</span>
+          <a href="/contact" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-1)] transition-colors relative z-30">Contact</a>
+        </div>
+
         {/* User row */}
-        <div className="flex items-center justify-between px-1 py-1">
-          <div className="flex items-center gap-2 min-w-0">
-            {userAvatar ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={userAvatar}
-                alt={userName}
-                className="h-7 w-7 rounded-lg object-cover flex-shrink-0"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <div
-                className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-                style={{ background: "linear-gradient(135deg, var(--indigo), var(--violet))" }}
-              >
-                {userInitials}
-              </div>
-            )}
-            <div className="min-w-0">
-              <p className="text-xs font-semibold truncate" style={{ color: "var(--text-1)", letterSpacing: "-0.014em" }}>
-                {userName}
-              </p>
-              <p className="text-[10px] truncate" style={{ color: "var(--text-3)" }}>
-                {userEmail}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowLogoutModal(true)}
-            className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-zinc-400 hover:text-red-500 transition-colors flex-shrink-0 cursor-pointer"
-            title="Log out"
+        {!user ? (
+          <Link
+            href="/login"
+            className="flex items-center justify-center w-full px-3 py-2 rounded-lg bg-[var(--indigo)] hover:bg-[var(--indigo)]/90 text-white text-xs font-bold transition-all cursor-pointer h-8 shadow-sm"
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
+            Sign In
+          </Link>
+        ) : (
+          <div className="flex items-center justify-between px-1 py-1">
+            <div className="flex items-center gap-2 min-w-0">
+              {userAvatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={userAvatar}
+                  alt={userName}
+                  className="h-7 w-7 rounded-lg object-cover flex-shrink-0"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div
+                  className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
+                  style={{ background: "linear-gradient(135deg, var(--indigo), var(--violet))" }}
+                >
+                  {userInitials}
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-xs font-semibold truncate" style={{ color: "var(--text-1)", letterSpacing: "-0.014em" }}>
+                  {userName}
+                </p>
+                <p className="text-[10px] truncate" style={{ color: "var(--text-3)" }}>
+                  {userEmail}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowLogoutModal(true)}
+              className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-zinc-400 hover:text-red-500 transition-colors flex-shrink-0 cursor-pointer"
+              title="Log out"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
           </button>
         </div>
+      )}
       </div>
     </div>
   );
@@ -288,22 +321,24 @@ export default function AppShell({ children, title, subtitle, action }: AppShell
       <div className="aurora-accent" />
 
       {/* ── Desktop Sidebar ── */}
-      <aside
-        className="glass-sidebar hidden md:flex flex-col flex-shrink-0 h-full relative z-10 transition-all duration-300 ease-in-out"
-        style={{
-          width: sidebarOpen ? "240px" : "0px",
-          opacity: sidebarOpen ? 1 : 0,
-          borderRight: sidebarOpen ? "1px solid var(--border)" : "none",
-          overflow: "hidden",
-        }}
-      >
-        <div style={{ width: "240px", height: "100%", flexShrink: 0 }}>
-          <SidebarContent />
-        </div>
-      </aside>
+      {!noSidebar && (
+        <aside
+          className="glass-sidebar hidden md:flex flex-col flex-shrink-0 h-full relative z-10 transition-all duration-300 ease-in-out"
+          style={{
+            width: sidebarOpen ? "240px" : "0px",
+            opacity: sidebarOpen ? 1 : 0,
+            borderRight: sidebarOpen ? "1px solid var(--border)" : "none",
+            overflow: "hidden",
+          }}
+        >
+          <div style={{ width: "240px", height: "100%", flexShrink: 0 }}>
+            <SidebarContent />
+          </div>
+        </aside>
+      )}
 
       {/* ── Mobile Sidebar Overlay ── */}
-      {mobileOpen && (
+      {!noSidebar && mobileOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
           <div
             className="absolute inset-0 bg-black/30 backdrop-blur-sm"
@@ -323,25 +358,38 @@ export default function AppShell({ children, title, subtitle, action }: AppShell
           className="glass-nav flex-shrink-0 flex items-center justify-between px-5 h-[56px]"
         >
           <div className="flex items-center gap-3.5 min-w-0">
-            {/* Desktop toggle visible when sidebar is closed */}
-            {!sidebarOpen && (
-              <div className="hidden md:block">
-                <SidebarToggle isOpen={sidebarOpen} onClick={handleToggle} />
-              </div>
-            )}
-            {/* Mobile toggle visible when mobile menu is closed */}
-            {!mobileOpen && (
-              <div className="block md:hidden">
-                <SidebarToggle isOpen={mobileOpen} onClick={() => setMobileOpen(true)} />
-              </div>
+            {noSidebar ? (
+              <Link href="/" className="flex items-center gap-2 text-xs font-semibold text-[var(--text-3)] hover:text-[var(--text-1)] transition-colors">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                <span>Back to Home</span>
+              </Link>
+            ) : (
+              <>
+                {/* Desktop toggle visible when sidebar is closed */}
+                {!sidebarOpen && (
+                  <div className="hidden md:block">
+                    <SidebarToggle isOpen={sidebarOpen} onClick={handleToggle} />
+                  </div>
+                )}
+                {/* Mobile toggle visible when mobile menu is closed */}
+                {!mobileOpen && (
+                  <div className="block md:hidden">
+                    <SidebarToggle isOpen={mobileOpen} onClick={() => setMobileOpen(true)} />
+                  </div>
+                )}
+              </>
             )}
 
             {/* Premium Breadcrumb Header */}
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-4)] select-none">
-              <span>Workspace</span>
-              <span className="text-[var(--text-3)] font-normal">/</span>
-              <span className="font-semibold text-[var(--text-1)]">{title}</span>
-            </div>
+            {!noSidebar && (
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-4)] select-none">
+                <span>Workspace</span>
+                <span className="text-[var(--text-3)] font-normal">/</span>
+                <span className="font-semibold text-[var(--text-1)]">{title}</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3.5 flex-shrink-0">
@@ -366,7 +414,7 @@ export default function AppShell({ children, title, subtitle, action }: AppShell
             </button>
 
             {/* User avatar / sign-out button */}
-            {userAvatar ? (
+            {user && (userAvatar ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={userAvatar}
@@ -385,12 +433,12 @@ export default function AppShell({ children, title, subtitle, action }: AppShell
               >
                 {userInitials}
               </div>
-            )}
+            ))}
           </div>
         </header>
 
         {/* Scrollable page content */}
-        <main className="flex-1 overflow-y-auto p-5 lg:p-6">
+        <main className={`flex-1 overflow-y-auto p-5 lg:p-6 ${noSidebar ? "max-w-5xl mx-auto w-full" : ""}`}>
 
           {/* ── Page Hero Header ── */}
           <div className="mb-8">

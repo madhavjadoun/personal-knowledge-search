@@ -847,7 +847,7 @@ export default function QuizPage() {
                     </div>
 
                     <div className="grid grid-cols-1 gap-2.5 pl-9">
-                      {q.options.map((opt) => {
+                      {q.options.map((opt, oIdx) => {
                         let optStyle = "border-[var(--border)] bg-[var(--surface)] text-[var(--text-3)] hover:border-slate-300 dark:hover:border-zinc-700";
                         
                         if (submitted) {
@@ -871,7 +871,10 @@ export default function QuizPage() {
                               !submitted ? "cursor-pointer active:scale-[0.995]" : "cursor-default"
                             }`}
                           >
-                            <span>{opt}</span>
+                            <span>
+                              <strong className="mr-1.5 text-[var(--text-2)]">{String.fromCharCode(65 + oIdx)}.</strong>
+                              {opt}
+                            </span>
                             {submitted && isCorrectOption(opt) && (
                               <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />

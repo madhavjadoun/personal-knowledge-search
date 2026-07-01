@@ -15,6 +15,12 @@ interface StatItem {
   accentBg: string;
   progress?: number;
   icon: React.ReactNode;
+  isActivity?: boolean;
+  activityData?: {
+    quizzesToday: number;
+    mcqsToday: number;
+    lastTime: string | null;
+  };
 }
 
 interface RecentDoc {
@@ -89,6 +95,28 @@ export default function DashboardPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return; // AppShell will redirect to /login if not authenticated
 
+        // Fetch daily credit balance from backend
+        let creditsRemaining = 30;
+        let creditsLimit = 30;
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          if (token) {
+            let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+            if (apiUrl.includes("localhost")) apiUrl = apiUrl.replace("localhost", "127.0.0.1");
+            const credRes = await fetch(`${apiUrl}/credits/status`, {
+              headers: { "Authorization": `Bearer ${token}` },
+            });
+            if (credRes.ok) {
+              const credData = await credRes.json();
+              creditsRemaining = credData.credits_remaining;
+              creditsLimit = credData.credits_limit;
+            }
+          }
+        } catch (credErr) {
+          console.warn("Failed to fetch credits in dashboard:", credErr);
+        }
+
         // 1. Fetch this user's documents metadata
         const { data: dbDocs, error: docsError } = await supabase
           .from("documents")
@@ -106,42 +134,72 @@ export default function DashboardPage() {
         let totalAccuracy = 0;
         let completedQuizzesCount = 0;
         let recentCompletedQuizzes: any[] = [];
+
+        // Daily activity tracking
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        let quizzesGeneratedToday = 0;
+        let mcqsGeneratedToday = 0;
+        let lastQuizTime: string | null = null;
         
-        if (documents.length > 0) {
-          const docIds = documents.map(d => d.id);
-          const { data: dbQuizzes, error: quizzesError } = await supabase
-            .from("quizzes")
-            .select("id, status, total_questions, created_at, document_id")
-            .in("document_id", docIds)
-            .order("created_at", { ascending: false });
-            
-          if (!quizzesError && dbQuizzes) {
-            quizzesCount = dbQuizzes.length;
-            dbQuizzes.forEach(q => {
-              if (q.status && q.status !== "generated") {
-                try {
-                  const attempt = JSON.parse(q.status);
-                  if (attempt && attempt.completed) {
-                    completedQuizzesCount++;
-                    questionsSolved += (attempt.correct || 0);
-                    totalAccuracy += (attempt.accuracy || 0);
-                    recentCompletedQuizzes.push({
-                      id: q.id,
-                      title: attempt.title,
-                      accuracy: attempt.accuracy,
-                      created_at: q.created_at,
-                      docId: q.document_id
-                    });
-                  }
-                } catch (e) {
-                  // Ignore status parse errors
-                }
-              }
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          if (token) {
+            let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+            if (apiUrl.includes("localhost")) apiUrl = apiUrl.replace("localhost", "127.0.0.1");
+            const res = await fetch(`${apiUrl}/quiz/user-history`, {
+              headers: { "Authorization": `Bearer ${token}` },
             });
+            if (res.ok) {
+              const quizData = await res.json();
+              const dbQuizzes = quizData.quizzes || [];
+              quizzesCount = dbQuizzes.length;
+              
+              dbQuizzes.forEach((q: any) => {
+                // Track today's activity
+                const quizDate = new Date(q.created_at);
+                if (quizDate >= todayStart) {
+                  quizzesGeneratedToday++;
+                  mcqsGeneratedToday += (q.total_questions || 0);
+                }
+
+                if (q.status && q.status !== "generated") {
+                  try {
+                    const attempt = JSON.parse(q.status);
+                    if (attempt && attempt.completed) {
+                      completedQuizzesCount++;
+                      questionsSolved += (attempt.correct || 0);
+                      totalAccuracy += (attempt.accuracy || 0);
+                      recentCompletedQuizzes.push({
+                        id: q.id,
+                        title: attempt.title,
+                        accuracy: attempt.accuracy,
+                        created_at: q.created_at,
+                        docId: q.document_id
+                      });
+                    }
+                  } catch (e) {
+                    // Ignore status parse errors
+                  }
+                }
+              });
+
+              if (dbQuizzes.length > 0) {
+                const lastQuizDate = new Date(dbQuizzes[0].created_at);
+                lastQuizTime = lastQuizDate.toLocaleTimeString("en-US", {
+                  hour: "2-digit",
+                  minute: "2-digit"
+                });
+              }
+            }
           }
+        } catch (historyErr) {
+          console.warn("Failed to fetch user history in dashboard:", historyErr);
         }
         
         const avgAccuracy = completedQuizzesCount > 0 ? Math.round(totalAccuracy / completedQuizzesCount) : 0;
+        const creditsProgress = (creditsRemaining / creditsLimit) * 100;
 
         // 3. Perform calculations
         const totalDocsCount = documents.length;
@@ -167,29 +225,35 @@ export default function DashboardPage() {
             ),
           },
           {
-            label: "Quizzes Generated",
-            value: quizzesCount.toString(),
-            delta: `${questionsSolved} questions solved`,
+            label: "Today's Credits",
+            value: `${creditsRemaining} / ${creditsLimit} MCQs Remaining`,
+            delta: `Resets at midnight`,
             deltaUp: null,
+            progress: creditsProgress,
             accentColor: "var(--indigo)",
             accentBg: "var(--bg-2)",
             icon: (
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.85}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 9.75a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m-13.5 3.01c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 01.778-.332 48.294 48.294 0 005.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
               </svg>
             ),
           },
           {
-            label: "Average Accuracy",
-            value: `${avgAccuracy}%`,
-            delta: `across completed tests`,
+            label: "Today's Activity",
+            value: "",
+            delta: "",
             deltaUp: null,
-            progress: avgAccuracy,
             accentColor: "var(--indigo)",
             accentBg: "var(--bg-2)",
+            isActivity: true,
+            activityData: {
+              quizzesToday: quizzesGeneratedToday,
+              mcqsToday: mcqsGeneratedToday,
+              lastTime: lastQuizTime
+            },
             icon: (
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.85}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             ),
           },
@@ -280,40 +344,69 @@ export default function DashboardPage() {
               {stats.map((s) => (
                 <div
                   key={s.label}
-                  className="glass-card rounded-2xl p-6 relative overflow-hidden"
+                  className="glass-card rounded-2xl p-6 relative overflow-hidden flex flex-col justify-between min-h-[160px]"
                 >
-                  <div className="flex items-center justify-between mb-4.5">
-                    <span className="text-[12px] font-bold tracking-[0.08em] uppercase text-[var(--text-2)]">
-                      {s.label}
-                    </span>
-                    <span
-                      className="flex items-center justify-center p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-1)] bg-[var(--bg-2)]"
-                    >
-                      {s.icon}
-                    </span>
+                  <div>
+                    <div className="flex items-center justify-between mb-4.5">
+                      <span className="text-[12px] font-bold tracking-[0.08em] uppercase text-[var(--text-2)]">
+                        {s.label}
+                      </span>
+                      <span
+                        className="flex items-center justify-center p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-1)] bg-[var(--bg-2)]"
+                      >
+                        {s.icon}
+                      </span>
+                    </div>
+
+                    {s.isActivity && s.activityData ? (
+                      s.activityData.quizzesToday === 0 ? (
+                        <p className="text-[13px] font-bold text-[var(--text-3)] mt-6">
+                          No quiz generated today.
+                        </p>
+                      ) : (
+                        <div className="space-y-1.5 mt-2">
+                          <div className="flex justify-between text-xs font-semibold text-[var(--text-2)]">
+                            <span>Quizzes Generated Today</span>
+                            <span className="text-[var(--text-1)] font-extrabold">{s.activityData.quizzesToday}</span>
+                          </div>
+                          <div className="flex justify-between text-xs font-semibold text-[var(--text-2)]">
+                            <span>MCQs Generated Today</span>
+                            <span className="text-[var(--text-1)] font-extrabold">{s.activityData.mcqsToday}</span>
+                          </div>
+                          {s.activityData.lastTime && (
+                            <div className="flex justify-between text-xs font-semibold text-[var(--text-2)]">
+                              <span>Last Quiz Time</span>
+                              <span className="text-[var(--text-1)] font-extrabold">{s.activityData.lastTime}</span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    ) : (
+                      <p
+                        className="text-xl font-extrabold tracking-tight text-[var(--text-1)]"
+                        style={{ letterSpacing: "-0.03em" }}
+                      >
+                        {s.value}
+                      </p>
+                    )}
                   </div>
 
-                  <p
-                    className="text-3xl font-extrabold tracking-tight text-[var(--text-1)]"
-                    style={{ letterSpacing: "-0.03em" }}
-                  >
-                    {s.value}
-                  </p>
-
-                  {s.progress !== undefined ? (
-                    <div className="mt-4">
-                      <div
-                        className="h-1.5 rounded-full overflow-hidden bg-[var(--bg-3)]"
-                      >
+                  {!s.isActivity && (
+                    s.progress !== undefined ? (
+                      <div className="mt-4">
                         <div
-                          className="h-full rounded-full bg-[var(--indigo)]"
-                          style={{ width: `${s.progress}%` }}
-                        />
+                          className="h-1.5 rounded-full overflow-hidden bg-[var(--bg-3)]"
+                        >
+                          <div
+                            className="h-full rounded-full bg-[var(--indigo)]"
+                            style={{ width: `${s.progress}%` }}
+                          />
+                        </div>
+                        <p className="text-[13px] font-bold text-[var(--text-2)] mt-2.5">{s.delta}</p>
                       </div>
+                    ) : (
                       <p className="text-[13px] font-bold text-[var(--text-2)] mt-2.5">{s.delta}</p>
-                    </div>
-                  ) : (
-                    <p className="text-[13px] font-bold text-[var(--text-2)] mt-2.5">{s.delta}</p>
+                    )
                   )}
                 </div>
               ))}
@@ -374,7 +467,7 @@ export default function DashboardPage() {
                                 {doc.date} · {doc.size} · <span className="text-[var(--text-1)] font-extrabold">{doc.chunks} chunks</span>
                               </p>
                             </div>
-                            <span className="badge badge-success flex-shrink-0 text-[10px]">
+                            <span className="text-[10px] font-semibold text-[var(--text-3)] border border-[var(--border)] px-1.5 py-0.5 rounded flex-shrink-0 select-none bg-transparent">
                               Ready
                             </span>
                           </div>
@@ -388,11 +481,6 @@ export default function DashboardPage() {
                 <div className="glass-card rounded-2xl overflow-hidden">
                   <div className="flex items-center justify-between px-6.5 py-5.5 border-b border-[var(--border)]">
                     <h3 className="text-[12px] font-bold tracking-[0.08em] uppercase text-[var(--text-1)]">Recent Activity Stream</h3>
-                    {hasDocs && (
-                      <span className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-600 dark:text-emerald-500 font-bold">
-                        ● Quiz Pipeline Online
-                      </span>
-                    )}
                   </div>
                   
                   <div className="p-6.5">
@@ -435,23 +523,16 @@ export default function DashboardPage() {
                 <div className="glass-card rounded-2xl p-6.5 space-y-4.5">
                   <div className="flex items-center justify-between">
                     <h3 className="text-[12px] font-bold tracking-[0.08em] uppercase text-[var(--text-1)]">Index Status</h3>
-                    <span className="badge badge-success text-[10px] font-bold">
-                      ● Active
-                    </span>
                   </div>
                   <div className="space-y-3 text-sm">
                     <div className="flex justify-between border-b border-[var(--border)] pb-2.5">
-                      <span className="text-[var(--text-2)] text-[13px] font-bold">Vector Indexer</span>
-                      <span className="font-extrabold text-[var(--text-1)] text-[13px]">Fully Synced</span>
-                    </div>
-                    <div className="flex justify-between border-b border-[var(--border)] pb-2.5">
-                      <span className="text-[var(--text-2)] text-[13px] font-bold">Search Mode</span>
-                      <span className="font-extrabold text-[var(--text-1)] text-[13px]">Quiz Mode</span>
+                      <span className="text-[var(--text-2)] text-[13px] font-bold">Knowledge Base</span>
+                      <span className="font-extrabold text-[var(--text-1)] text-[13px]">Synced</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[var(--text-2)] text-[13px] font-bold">Ingestion Sync</span>
+                      <span className="text-[var(--text-2)] text-[13px] font-bold">Last Synced</span>
                       <span className="font-extrabold text-[var(--text-1)] text-[13px]">
-                        {hasDocs ? "Up to date" : "Waiting for files"}
+                        {hasDocs ? "Up to date" : "No files indexed"}
                       </span>
                     </div>
                   </div>

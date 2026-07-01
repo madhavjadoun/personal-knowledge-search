@@ -840,15 +840,35 @@ export default function WelcomePage() {
         </div>
       </motion.div>
 
-      {/* Professional Footer */}
-      <footer className="w-full border-t border-[var(--border)] bg-[var(--surface)] text-[var(--text-1)] mt-24 sm:mt-32" style={{ paddingTop: '80px', paddingBottom: '40px' }}>
-        <div className="max-w-[1280px] mx-auto px-6 sm:px-12 lg:px-20">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-16 pb-16">
+      <footer className="w-full text-[var(--text-1)] mt-24 sm:mt-32">
+        <style dangerouslySetInnerHTML={{ __html: `
+          .custom-page-footer-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 40px;
+            align-items: start;
+          }
+          @media (min-width: 1024px) {
+            .custom-page-footer-grid {
+              grid-template-columns: 1.8fr 1fr 1fr !important;
+              gap: 80px !important;
+            }
+          }
+          .custom-page-footer-container {
+            max-width: 1400px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+            padding: 80px 40px !important;
+            width: 100%;
+          }
+        `}} />
+        <div className="custom-page-footer-container">
+          <div className="custom-page-footer-grid">
             
-            {/* Column 1: Logo and Brand details */}
-            <div className="lg:col-span-5 space-y-4">
+            {/* Column 1: Logo + Brand + Description + Socials */}
+            <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 flex-shrink-0 footer-logo-container">
+                <div className="flex-shrink-0" style={{ height: '24px', width: '24px', maxWidth: '90px' }}>
                   <LogoSVG
                     type="icon"
                     animate={false}
@@ -859,17 +879,62 @@ export default function WelcomePage() {
                   QuizGenerator
                 </span>
               </div>
-              <p className="text-sm text-[var(--text-3)] leading-relaxed max-w-[340px] font-normal">
+              <p 
+                className="text-sm text-[var(--text-3)] leading-relaxed font-normal"
+                style={{ 
+                  maxWidth: '340px', 
+                  whiteSpace: 'normal', 
+                  wordBreak: 'normal', 
+                  overflowWrap: 'break-word' 
+                }}
+              >
                 Generate high-quality AI practice quizzes from searchable and scanned PDFs with intelligent text extraction.
               </p>
+              
+              {/* Social icons row below description */}
+              <div className="flex items-center gap-[16px] pt-2">
+                <a 
+                  href="https://github.com/madhavjadoun" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="flex items-center justify-center h-9 w-9 rounded-lg bg-[var(--bg-2)] border border-[var(--border)] text-[var(--text-3)] hover:text-[var(--text-1)] hover:border-[var(--text-2)] hover:bg-[var(--bg-3)] transition-all duration-200"
+                  aria-label="GitHub"
+                >
+                  <svg className="w-4.5 h-4.5" fill="currentColor" viewBox="0 0 24 24">
+                    <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.167 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.137 20.164 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
+                  </svg>
+                </a>
+                
+                <a 
+                  href="mailto:madhavjadaun9@gmail.com" 
+                  className="flex items-center justify-center h-9 w-9 rounded-lg bg-[var(--bg-2)] border border-[var(--border)] text-[var(--text-3)] hover:text-[var(--text-1)] hover:border-[var(--text-2)] hover:bg-[var(--bg-3)] transition-all duration-200"
+                  aria-label="Email"
+                >
+                  <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </a>
+
+                <a 
+                  href="https://linkedin.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="flex items-center justify-center h-9 w-9 rounded-lg bg-[var(--bg-2)] border border-[var(--border)] text-[var(--text-3)] hover:text-[var(--text-1)] hover:border-[var(--text-2)] hover:bg-[var(--bg-3)] transition-all duration-200"
+                  aria-label="LinkedIn"
+                >
+                  <svg className="w-4.5 h-4.5" fill="currentColor" viewBox="0 0 24 24">
+                    <path fillRule="evenodd" d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.779-1.75-1.75s.784-1.75 1.75-1.75 1.75.779 1.75 1.75-.784 1.75-1.75 1.75zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" clipRule="evenodd" />
+                  </svg>
+                </a>
+              </div>
             </div>
 
             {/* Column 2: FEATURES */}
-            <div className="lg:col-span-3 space-y-4">
+            <div className="custom-footer-col-min space-y-4">
               <h5 className="text-xs font-bold uppercase tracking-wider text-[var(--text-1)]" style={{ letterSpacing: '0.1em' }}>
                 Features
               </h5>
-              <ul className="space-y-3 font-normal text-sm text-[var(--text-3)]">
+              <ul className="space-y-3 font-normal text-sm text-[var(--text-3)] whitespace-nowrap">
                 <li className="py-0.5 flex items-center">
                   AI Quiz Generation
                 </li>
@@ -889,64 +954,41 @@ export default function WelcomePage() {
             </div>
 
             {/* Column 3: RESOURCES */}
-            <div className="lg:col-span-2 space-y-4">
+            <div className="custom-footer-col-min space-y-4">
               <h5 className="text-xs font-bold uppercase tracking-wider text-[var(--text-1)]" style={{ letterSpacing: '0.1em' }}>
                 Resources
               </h5>
-              <ul className="space-y-3 font-normal">
+              <ul className="space-y-3 font-normal text-sm text-[var(--text-3)] whitespace-nowrap">
                 <li>
                   <FooterLink 
-                    href="#" 
+                    href="/privacy" 
+                    target="_blank"
+                    rel="noopener noreferrer"
                     text="Privacy Policy"
                   />
                 </li>
                 <li>
                   <FooterLink 
-                    href="#" 
+                    href="/terms" 
+                    target="_blank"
+                    rel="noopener noreferrer"
                     text="Terms of Service"
                   />
                 </li>
                 <li>
                   <FooterLink 
-                    href="#" 
+                    href="/faq" 
+                    target="_blank"
+                    rel="noopener noreferrer"
                     text="FAQ"
                   />
                 </li>
                 <li>
                   <FooterLink 
-                    href="mailto:support@quizgenerator.com" 
+                    href="/contact" 
+                    target="_blank"
+                    rel="noopener noreferrer"
                     text="Contact"
-                  />
-                </li>
-              </ul>
-            </div>
-
-            {/* Column 4: CONNECT */}
-            <div className="lg:col-span-2 space-y-4">
-              <h5 className="text-xs font-bold uppercase tracking-wider text-[var(--text-1)]" style={{ letterSpacing: '0.1em' }}>
-                Connect
-              </h5>
-              <ul className="space-y-3 font-normal">
-                <li>
-                  <FooterLink 
-                    href="https://github.com" 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    text="GitHub"
-                  />
-                </li>
-                <li>
-                  <FooterLink 
-                    href="mailto:support@quizgenerator.com" 
-                    text="Email"
-                  />
-                </li>
-                <li>
-                  <FooterLink 
-                    href="https://linkedin.com" 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    text="LinkedIn"
                   />
                 </li>
               </ul>
@@ -955,16 +997,17 @@ export default function WelcomePage() {
           </div>
 
           {/* Thin divider */}
-          <div className="border-t border-[var(--border)] pt-8 mt-4">
+          {/* Thin divider */}
+          <div className="border-t border-[var(--border)] pt-8 mt-8">
             
-            {/* Bottom Footer: Left and Right */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[var(--text-4)] font-medium">
-              <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-center sm:text-left">
-                <span>© 2026 QuizGenerator.</span>
+            {/* Bottom Footer: Centered */}
+            <div className="flex flex-col items-center justify-center gap-2 text-center text-xs text-[var(--text-4)] font-medium">
+              <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-center">
+                <span>© 2026 QuizGenerator</span>
                 <span className="hidden sm:inline">•</span>
                 <span>Built with FastAPI • Gemini • Supabase</span>
               </div>
-              <div className="text-center sm:text-right">
+              <div>
                 <span>Made for students ❤️ by Madhav Jadoun</span>
               </div>
             </div>

@@ -6,7 +6,7 @@ import Link from "next/link";
 import AppShell from "@/components/app/AppShell";
 import { supabase } from "@/lib/supabase";
 import OrbitLoader from "@/components/app/OrbitLoader";
-import { CheckCircle2, Target, Brain, Download as DownloadIcon } from "lucide-react";
+import { CheckCircle2, Target, Brain, Download as DownloadIcon, BookOpen, FileText } from "lucide-react";
 
 interface QuizAttempt {
   completed: boolean;
@@ -46,6 +46,8 @@ export default function HistoryPage() {
   const [quizToDelete, setQuizToDelete] = useState<DBQuiz | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
+  const [quizToDownload, setQuizToDownload] = useState<DBQuiz | null>(null);
+  const [includeAnswers, setIncludeAnswers] = useState(true);
 
   const [downloadedCount, setDownloadedCount] = useState(0);
   const fetchedRef = useRef(false);
@@ -160,7 +162,7 @@ export default function HistoryPage() {
     return m > 0 ? `${m}m ${s}s` : `${s}s`;
   };
 
-  const handleDownload = (quiz: DBQuiz) => {
+  const handleDownload = (quiz: DBQuiz, withAnswers: boolean) => {
     const docName = docMap[quiz.document_id] || "Document";
     const fallbackTitle = `${docName} Quiz`;
     const attempt = parseAttempt(quiz.status, fallbackTitle);
@@ -198,8 +200,8 @@ export default function HistoryPage() {
     };
 
     import("@/utils/pdfGenerator").then((mod) => {
-      mod.downloadQuizReport(reportData);
-      
+      mod.downloadQuizReport(reportData, withAnswers);
+
       // Track download in localStorage
       if (typeof window !== "undefined") {
         const downloadedList = JSON.parse(localStorage.getItem("downloaded_reports") || "[]");
@@ -293,15 +295,15 @@ export default function HistoryPage() {
     return attempt.completed;
   });
   const completedCount = completedQuizzes.length;
-  const avgAccuracy = completedCount > 0 
-    ? Math.round(completedQuizzes.reduce((acc, q) => acc + parseAttempt(q.status, "").accuracy, 0) / completedCount) 
+  const avgAccuracy = completedCount > 0
+    ? Math.round(completedQuizzes.reduce((acc, q) => acc + parseAttempt(q.status, "").accuracy, 0) / completedCount)
     : 0;
   const questionsSolved = completedQuizzes.reduce((acc, q) => acc + parseAttempt(q.status, "").correct, 0);
 
   return (
     <AppShell title="Quiz History" subtitle="Review your past AI quiz attempts and performance.">
       <div className="max-w-7xl mx-auto space-y-7">
-        
+
         {/* Top Summary Cards */}
         {!loading && quizzes.length > 0 && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -315,18 +317,18 @@ export default function HistoryPage() {
 
             <div className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-5 flex items-center justify-between hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 cursor-pointer">
               <div className="space-y-1">
-                <p className="text-[12px] font-medium text-[var(--text-3)]">Avg Accuracy</p>
-                <p className="text-2xl font-bold text-[var(--text-1)]">{avgAccuracy}%</p>
+                <p className="text-[12px] font-medium text-[var(--text-3)]">Total Quizzes</p>
+                <p className="text-2xl font-bold text-[var(--text-1)]">{quizzes.length}</p>
               </div>
-              <Target className="w-5 h-5 text-[var(--text-3)] opacity-80" strokeWidth={1.5} />
+              <BookOpen className="w-5 h-5 text-[var(--text-3)] opacity-80" strokeWidth={1.5} />
             </div>
 
             <div className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-5 flex items-center justify-between hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 cursor-pointer">
               <div className="space-y-1">
-                <p className="text-[12px] font-medium text-[var(--text-3)]">Questions Solved</p>
-                <p className="text-2xl font-bold text-[var(--text-1)]">{questionsSolved}</p>
+                <p className="text-[12px] font-medium text-[var(--text-3)]">Documents Practiced</p>
+                <p className="text-2xl font-bold text-[var(--text-1)]">{new Set(quizzes.map(q => q.document_id)).size}</p>
               </div>
-              <Brain className="w-5 h-5 text-[var(--text-3)] opacity-80" strokeWidth={1.5} />
+              <FileText className="w-5 h-5 text-[var(--text-3)] opacity-80" strokeWidth={1.5} />
             </div>
 
             <div className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-5 flex items-center justify-between hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 cursor-pointer">
@@ -359,7 +361,7 @@ export default function HistoryPage() {
             </button>
           </div>
         )}
-        
+
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3">
             <OrbitLoader size={44} />
@@ -382,7 +384,7 @@ export default function HistoryPage() {
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {quizzes.map((quiz) => {
               const docName = docMap[quiz.document_id] || "Untitled Document";
               const fallbackTitle = `${docName} Quiz`;
@@ -396,14 +398,14 @@ export default function HistoryPage() {
               return (
                 <div
                   key={quiz.id}
-                  className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-6 flex flex-col justify-between min-h-[220px] hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300"
+                  className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-4 flex flex-col justify-between min-h-[190px] hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300"
                 >
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {/* Header Row */}
-                    <div className="flex justify-between items-start gap-4">
+                    <div className="flex justify-between items-start gap-3">
                       <div className="space-y-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <h4 className="text-base font-bold text-[var(--text-1)]">
+                          <h4 className="text-sm font-bold text-[var(--text-1)]">
                             Practice Quiz
                           </h4>
                           <span className="text-[9px] font-mono bg-[var(--bg-2)] text-[var(--text-3)] px-1.5 py-0.5 rounded border border-[var(--border)] font-medium">
@@ -411,48 +413,41 @@ export default function HistoryPage() {
                           </span>
                         </div>
                         <div className="flex flex-col gap-0.5">
-                          <p className="text-[11px] font-semibold text-[var(--text-2)] flex items-center gap-1">
-                            <span className="text-sm">📄</span>
-                            <span className="truncate max-w-[200px]">{docName}</span>
+                          <p className="text-[10px] font-semibold text-[var(--text-2)] flex items-center gap-1">
+                            <span className="text-xs">📄</span>
+                            <span className="truncate max-w-[150px]">{docName}</span>
                           </p>
-                          <p className="text-[10px] font-medium text-[var(--text-4)]">
+                          <p className="text-[9px] font-medium text-[var(--text-4)]">
                             Created {formattedDate}
                           </p>
                         </div>
                       </div>
 
                       {/* Completed badge */}
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-flex items-center gap-1.5 ${
-                        attempt.completed 
-                          ? "bg-[#10b981]/15 text-[#10b981]" 
-                          : "bg-amber-500/10 text-amber-500"
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${
-                          attempt.completed ? "bg-[#10b981]" : "bg-amber-500"
-                        }`} />
+                      <span className="px-1.5 py-0.5 rounded border border-[var(--border)] text-[9px] font-semibold text-[var(--text-3)] bg-transparent select-none">
                         {attempt.completed ? "Completed" : "Generated"}
                       </span>
                     </div>
 
                     {/* Stats Rows */}
-                    <div className="border-t border-[var(--border)] pt-4 space-y-2">
-                      <div className="flex justify-between text-xs font-medium">
+                    <div className="border-t border-[var(--border)] pt-3 space-y-1.5">
+                      <div className="flex justify-between text-[11px] font-medium">
                         <span className="text-[var(--text-3)]">Questions</span>
                         <span className="text-[var(--text-1)]">{quiz.total_questions}</span>
                       </div>
-                      <div className="flex justify-between text-xs font-medium">
+                      <div className="flex justify-between text-[11px] font-medium">
                         <span className="text-[var(--text-3)]">Accuracy</span>
                         <span className="text-[var(--text-1)]">
                           {attempt.completed ? `${attempt.accuracy}%` : "--:--"}
                         </span>
                       </div>
-                      <div className="flex justify-between text-xs font-medium">
+                      <div className="flex justify-between text-[11px] font-medium">
                         <span className="text-[var(--text-3)]">Duration</span>
                         <span className="text-[var(--text-1)]">
                           {attempt.completed ? formatTime(attempt.time_taken) : "--:--"}
                         </span>
                       </div>
-                      <div className="flex justify-between text-xs font-medium">
+                      <div className="flex justify-between text-[11px] font-medium">
                         <span className="text-[var(--text-3)]">Difficulty</span>
                         <span className="text-[var(--text-1)] capitalize">{attempt.difficulty}</span>
                       </div>
@@ -462,7 +457,7 @@ export default function HistoryPage() {
                     {attempt.completed && (
                       <button
                         onClick={() => router.push(`/chat?quizId=${quiz.id}&review=true`)}
-                        className="text-xs font-medium text-[var(--indigo-accent)] hover:underline flex items-center gap-1 mt-1 cursor-pointer"
+                        className="text-[11px] font-medium text-[var(--indigo-accent)] hover:underline flex items-center gap-1 mt-0.5 cursor-pointer"
                       >
                         View Analytics →
                       </button>
@@ -470,25 +465,25 @@ export default function HistoryPage() {
                   </div>
 
                   {/* Actions Footer */}
-                  <div className="flex items-center gap-2 mt-5 pt-4 border-t border-[var(--border)]">
+                  <div className="flex items-center gap-1.5 mt-4 pt-3 border-t border-[var(--border)]">
                     {attempt.completed ? (
                       <button
                         onClick={() => router.push(`/chat?quizId=${quiz.id}&review=true`)}
-                        className="flex-1 py-2 text-center border border-[var(--border)] hover:bg-[var(--bg-2)] text-xs font-bold text-[var(--text-2)] rounded-lg transition-all cursor-pointer h-9 flex items-center justify-center"
+                        className="flex-1 py-1.5 text-center border border-[var(--border)] hover:bg-[var(--bg-2)] text-[11px] font-bold text-[var(--text-2)] rounded-lg transition-all cursor-pointer h-8 flex items-center justify-center"
                       >
                         Review
                       </button>
                     ) : (
-                      <div className="flex-1 text-center py-2 text-xs font-medium text-[var(--text-3)] italic h-9 flex items-center justify-center border border-dashed border-[var(--border)] rounded-lg">
+                      <div className="flex-1 text-center py-1.5 text-[11px] font-medium text-[var(--text-3)] italic h-8 flex items-center justify-center border border-dashed border-[var(--border)] rounded-lg">
                         Review unavailable
                       </div>
                     )}
                     
                     <button
                       onClick={() => router.push(`/chat?docId=${quiz.document_id}`)}
-                      className="flex-1 py-2 text-center bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 hover:opacity-90 text-xs font-bold rounded-lg transition-all cursor-pointer h-9 flex items-center justify-center gap-1.5 btn-premium-shine"
+                      className="flex-1 py-1.5 text-center bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 hover:opacity-90 text-[11px] font-bold rounded-lg transition-all cursor-pointer h-8 flex items-center justify-center gap-1 btn-premium-shine"
                     >
-                      <svg className="w-3.5 h-3.5 flex-shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg className="w-3 h-3 flex-shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 21l-.813-5.096L3 15l5.187-.904L9 9l.813 5.096L15 15l-5.187.904zM18 10.5l-.5 3-.5-3-3-.5 3-.5.5-3 .5 3 3 .5-3 .5zM19 19.5l-.25 1.5-.25-1.5-1.5-.25 1.5-.25.25-1.5.25 1.5 1.5.25-1.5.25z" />
                       </svg>
                       <span>Retake</span>
@@ -496,12 +491,15 @@ export default function HistoryPage() {
                     
                     {/* PDF Report Download */}
                     <button
-                      onClick={() => handleDownload(quiz)}
+                      onClick={() => {
+                        setQuizToDownload(quiz);
+                        setIncludeAnswers(true);
+                      }}
                       disabled={!attempt.completed}
-                      className="p-2 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-2)] text-[var(--text-2)] transition-colors cursor-pointer disabled:opacity-30 group relative w-9 h-9 flex items-center justify-center"
+                      className="p-1.5 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-2)] text-[var(--text-2)] transition-colors cursor-pointer disabled:opacity-30 group relative w-8 h-8 flex items-center justify-center"
                       title="Download PDF Report"
                     >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                       </svg>
                       
@@ -514,10 +512,10 @@ export default function HistoryPage() {
                     {/* Delete */}
                     <button
                       onClick={() => setQuizToDelete(quiz)}
-                      className="p-2 rounded-lg border border-[var(--border)] hover:border-red-500/50 hover:bg-red-500/10 text-[var(--text-2)] hover:text-red-500 transition-all cursor-pointer w-9 h-9 flex items-center justify-center"
+                      className="p-1.5 rounded-lg border border-[var(--border)] hover:border-red-500/50 hover:bg-red-500/10 text-[var(--text-2)] hover:text-red-500 transition-all cursor-pointer w-8 h-8 flex items-center justify-center"
                       title="Delete Quiz"
                     >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
                     </button>
@@ -596,6 +594,107 @@ export default function HistoryPage() {
                 )}
                 <span>Clear All History</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Download Options Modal */}
+      {quizToDownload && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#121826] border border-[var(--border)] rounded-xl max-w-[400px] w-full p-6 shadow-xl space-y-5 mx-4 animate-in zoom-in-95 duration-200">
+            <div className="space-y-1.5">
+              <h3 className="text-base font-bold text-[var(--text-1)]">Download Quiz Report</h3>
+              <p className="text-xs text-[var(--text-3)] leading-relaxed font-medium">
+                Export a clean PDF for revision or sharing.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between p-3.5 bg-[var(--bg-2)]/60 border border-[var(--border)] rounded-lg hover:border-[var(--text-4)]/30 transition-colors duration-200">
+              <div className="space-y-0.5">
+                <p className="text-xs font-bold text-[var(--text-2)]">Include Answers & Explanations</p>
+                <p className="text-[10px] text-[var(--text-4)]">Include correct answers and detailed AI explanations.</p>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <span 
+                  className={`text-[10px] font-black tracking-wider transition-colors duration-200 ${
+                    includeAnswers 
+                      ? "text-black dark:text-white" 
+                      : "text-zinc-500 dark:text-zinc-400"
+                  }`}
+                >
+                  {includeAnswers ? "YES" : "NO"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIncludeAnswers(!includeAnswers)}
+                  className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none"
+                  style={{
+                    backgroundColor: includeAnswers ? '#000000' : '#a9a9a9'
+                  }}
+                >
+                  <span
+                    className="pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-md"
+                    style={{
+                      position: 'absolute',
+                      top: '2px',
+                      left: includeAnswers ? '18px' : '2px',
+                      transition: 'left 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                    }}
+                  />
+                </button>
+              </div>
+            </div>
+
+            {/* List of included items */}
+            <div className="space-y-2 border-t border-[var(--border)] pt-4">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-4)]">
+                Your PDF will include
+              </p>
+              <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--text-2)] font-semibold">
+                <li className="flex items-center gap-1.5">
+                  <span style={{ color: 'var(--indigo-accent)' }}>✓</span> Questions
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span style={{ color: 'var(--indigo-accent)' }}>✓</span> Options
+                </li>
+                {includeAnswers && (
+                  <>
+                    <li className="flex items-center gap-1.5 transition-all duration-200 animate-in fade-in slide-in-from-left-1">
+                      <span style={{ color: 'var(--indigo-accent)' }}>✓</span> Correct Answer
+                    </li>
+                    <li className="flex items-center gap-1.5 transition-all duration-200 animate-in fade-in slide-in-from-left-1">
+                      <span style={{ color: 'var(--indigo-accent)' }}>✓</span> Explanation
+                    </li>
+                  </>
+                )}
+              </ul>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-[var(--border)]">
+              <button
+                onClick={() => setQuizToDownload(null)}
+                className="px-4 py-2 border border-[var(--border)] hover:border-[var(--text-4)]/45 hover:bg-[var(--bg-2)] text-xs font-bold text-[var(--text-2)] rounded-lg transition-all duration-200 cursor-pointer h-9 flex items-center justify-center"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  handleDownload(quizToDownload, includeAnswers);
+                  setQuizToDownload(null);
+                }}
+                style={{ backgroundColor: 'var(--indigo-accent)' }}
+                className="px-4 py-2 hover:opacity-90 text-white rounded-lg text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer h-9 shadow-sm"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                <span>Download PDF</span>
+              </button>
+            </div>
+
+            <div className="text-[9px] text-[var(--text-4)] text-center pt-1 font-medium select-none">
+              Generated locally • Secure • No data shared.
             </div>
           </div>
         </div>
