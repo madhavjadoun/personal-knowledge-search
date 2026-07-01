@@ -13,64 +13,20 @@ import NavbarLogo from "@/components/layout/NavbarLogo";
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 
 function SidebarToggle({ isOpen, onClick }: { isOpen: boolean; onClick: () => void }) {
-  const [mounted, setMounted] = useState(false);
-  const lottieRef = useRef<import("lottie-react").LottieRefCurrentProps | null>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    const checkAndPlay = () => {
-      if (!active) return;
-      if (lottieRef.current) {
-        if (isOpen) {
-          lottieRef.current.playSegments([0, 62], true);
-        } else {
-          lottieRef.current.playSegments([62, 124], true);
-        }
-      } else {
-        setTimeout(checkAndPlay, 50);
-      }
-    };
-    checkAndPlay();
-    return () => {
-      active = false;
-    };
-  }, [isOpen]);
-
-  if (!mounted) {
-    return (
-      <button
-        onClick={onClick}
-        className="p-1 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center flex-shrink-0 cursor-pointer"
-        style={{ width: "36px", height: "36px", color: "var(--text-1)" }}
-        aria-label="Toggle sidebar"
-      >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-        </svg>
-      </button>
-    );
-  }
-
   return (
     <button
       onClick={onClick}
-      className="p-1 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center flex-shrink-0 lottie-menu-btn cursor-pointer"
-      style={{ width: "36px", height: "36px" }}
+      className="p-1 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center flex-shrink-0 cursor-pointer"
+      style={{ width: "36px", height: "36px", color: "var(--text-1)" }}
       aria-label="Toggle sidebar"
     >
-      <div className="w-6.5 h-6.5 flex items-center justify-center">
-        <Lottie
-          lottieRef={lottieRef}
-          animationData={menuAnimation}
-          loop={false}
-          autoplay={false}
-          style={{ width: "100%", height: "100%" }}
-        />
-      </div>
+      <svg className="w-5.5 h-5.5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+        {isOpen ? (
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        ) : (
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        )}
+      </svg>
     </button>
   );
 }

@@ -10,6 +10,7 @@ import uploadAnimation from "../../public/upload.json";
 import OrbitLoader from "@/components/app/OrbitLoader";
 import NavbarLogo from "@/components/layout/NavbarLogo";
 import ShinyText from "@/components/ui/ShinyText";
+import LogoSVG from "@/components/layout/LogoSVG";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 
@@ -899,10 +900,10 @@ export default function WelcomePage() {
             {/* Logo and Brand details */}
             <div className="md:col-span-5 space-y-4">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 flex-shrink-0 animate-footer-logo-idle footer-logo-sweep">
-                  <img
-                    src="/logo-icon.png"
-                    alt="QuizGenerator Logo"
+                <div className="w-7 h-7 flex-shrink-0 footer-logo-container">
+                  <LogoSVG
+                    type="icon"
+                    animate={false}
                     className="w-full h-full object-contain dark:invert dark:hue-rotate-180"
                   />
                 </div>

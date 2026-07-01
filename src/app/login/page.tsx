@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
+import LogoSVG from "@/components/layout/LogoSVG";
 
 
 
@@ -285,14 +286,11 @@ function LoginContent() {
           {/* Header toolbar with Mobile Logo */}
           <div className="flex items-center justify-between w-full">
             {/* Brand Logo */}
-            <div className="flex items-center">
-              <img
-                src="/logo-full.png"
-                alt="QuizGenerator"
+            <div className="flex items-center" style={{ height: '32px' }}>
+              <LogoSVG
+                type="full"
+                animate={false}
                 className="h-8 w-auto object-contain select-none pointer-events-none"
-                style={{
-                  maxHeight: '32px'
-                }}
               />
             </div>
           </div>
