@@ -69,11 +69,21 @@ export default function QuizPage() {
     resetAt: string;
   } | null>(null);
   const [isCreditsError, setIsCreditsError] = useState(false);
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
 
   const showToast = (message: string, type: "error" | "success" = "success") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
+
+  const apiUrl = (() => {
+    let url = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+    if (url.includes("localhost")) {
+      url = url.replace("localhost", "127.0.0.1");
+    }
+    return url;
+  })();
 
   // Fetch user's documents on mount
   useEffect(() => {
@@ -107,8 +117,6 @@ export default function QuizPage() {
           const { data: { session } } = await supabase.auth.getSession();
           const token = session?.access_token;
           if (token) {
-            let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-            if (apiUrl.includes("localhost")) apiUrl = apiUrl.replace("localhost", "127.0.0.1");
             const credRes = await fetch(`${apiUrl}/credits/status`, {
               headers: { "Authorization": `Bearer ${token}` },
             });
@@ -167,11 +175,6 @@ export default function QuizPage() {
             throw new Error("Unable to retrieve authentication token. Please sign in again.");
           }
 
-          let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-          if (apiUrl.includes("localhost")) {
-            apiUrl = apiUrl.replace("localhost", "127.0.0.1");
-          }
-
           const res = await fetch(`${apiUrl}/quiz/${quizIdParam}`, {
             headers: {
               "Authorization": `Bearer ${token}`,
@@ -227,6 +230,10 @@ export default function QuizPage() {
   // Trigger quiz generation from selected PDF
   const handleGenerateQuiz = async () => {
     if (generatingQuiz) return;
+    if (creditsInfo !== null && creditsInfo.remaining === 0) {
+      setShowLimitModal(true);
+      return;
+    }
     setDocValidationError(false);
     setMcqValidationError(false);
     setErrorMsg(null);
@@ -265,7 +272,7 @@ export default function QuizPage() {
         throw new Error("Unable to retrieve authentication token. Please sign in again.");
       }
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/quiz/generate`, {
+      const res = await fetch(`${apiUrl}/quiz/generate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -287,8 +294,6 @@ export default function QuizPage() {
           try {
             const { data: { session: s2 } } = await supabase.auth.getSession();
             if (s2?.access_token) {
-              let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-              if (apiUrl.includes("localhost")) apiUrl = apiUrl.replace("localhost", "127.0.0.1");
               const credRes = await fetch(`${apiUrl}/credits/status`, {
                 headers: { "Authorization": `Bearer ${s2.access_token}` },
               });
@@ -300,6 +305,7 @@ export default function QuizPage() {
           } catch (_) {/* silent */}
         }
         setIsCreditsError(true);
+        setShowLimitModal(true);
         throw new Error(data.detail || "You have run out of daily credits.");
       }
 
@@ -385,10 +391,6 @@ export default function QuizPage() {
         }
 
         // Call backend API /quiz/submit to update the quiz securely with service role key after verifying ownership
-        let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-        if (apiUrl.includes("localhost")) {
-          apiUrl = apiUrl.replace("localhost", "127.0.0.1");
-        }
         const submitRes = await fetch(`${apiUrl}/quiz/submit`, {
           method: "POST",
           headers: {
@@ -459,7 +461,12 @@ export default function QuizPage() {
         <div className="bg-[var(--surface)] border border-[var(--border)] shadow-sm w-full max-w-[1180px] mx-auto hover:-translate-y-[2px] hover:shadow-lg transition-all duration-250" style={{ padding: "28px", borderRadius: "18px" }}>
           
           {/* Card header row: title + credit badge */}
-          <div className="flex items-center justify-between" style={{ marginBottom: "24px" }}>
+          <div 
+            className="flex items-center justify-between" 
+            style={{ 
+              marginBottom: (creditsInfo !== null && (creditsInfo.remaining === 0 || (numQuestions > 0 && numQuestions > creditsInfo.remaining))) ? "10px" : "24px" 
+            }}
+          >
             <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--text-4)]">Configure Quiz</h3>
             {creditsInfo !== null && (
               <div className="flex items-center gap-2">
@@ -489,6 +496,29 @@ export default function QuizPage() {
               </div>
             )}
           </div>
+
+          {creditsInfo !== null && (creditsInfo.remaining === 0 || (numQuestions > 0 && numQuestions > creditsInfo.remaining)) && (
+            <div className="flex justify-center animate-in fade-in duration-200" style={{ marginBottom: "16px" }}>
+              <div 
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold shadow-sm"
+                style={{
+                  backgroundColor: "rgba(251, 191, 36, 0.06)",
+                  borderColor: "rgba(251, 191, 36, 0.25)",
+                  color: "#d97706"
+                }}
+              >
+                <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <span>
+                  {creditsInfo.remaining === 0 
+                    ? "Only 0 credits left today. Please come back tomorrow." 
+                    : `Only ${creditsInfo.remaining} credit${creditsInfo.remaining !== 1 ? "s" : ""} left today.`
+                  }
+                </span>
+              </div>
+            </div>
+          )}
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[2fr_160px_140px_200px] gap-5 items-end w-full">
             
@@ -504,7 +534,7 @@ export default function QuizPage() {
                 </div>
                 <select
                   value={selectedDocId}
-                  disabled={generatingQuiz}
+                  disabled={generatingQuiz || (creditsInfo !== null && creditsInfo.remaining === 0)}
                   onChange={(e) => {
                     setSelectedDocId(e.target.value);
                     setDocValidationError(false);
@@ -514,7 +544,7 @@ export default function QuizPage() {
                     docValidationError 
                       ? "border-red-500 ring-2 ring-red-500/15" 
                       : "border-[var(--border)] focus:border-[var(--indigo)] focus:ring-2 focus:ring-[var(--indigo)]/10"
-                  } bg-[var(--surface)] text-[16px] text-[var(--text-2)] focus:outline-none transition-all duration-250 cursor-pointer hover:border-slate-300 dark:hover:border-zinc-700 disabled:opacity-50`}
+                  } bg-[var(--surface)] text-[16px] text-[var(--text-2)] focus:outline-none transition-all duration-250 cursor-pointer hover:border-slate-300 dark:hover:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed`}
                   style={{ height: "48px", borderRadius: "12px", paddingLeft: "44px", paddingRight: "44px", appearance: "none", WebkitAppearance: "none", MozAppearance: "none" }}
                 >
                   <option value="">Select a document...</option>
@@ -539,9 +569,9 @@ export default function QuizPage() {
               <div className="relative group/select">
                 <select
                   value={difficulty}
-                  disabled={generatingQuiz}
+                  disabled={generatingQuiz || (creditsInfo !== null && creditsInfo.remaining === 0)}
                   onChange={(e) => setDifficulty(e.target.value)}
-                  className="w-full border border-[var(--border)] focus:border-[var(--indigo)] focus:ring-2 focus:ring-[var(--indigo)]/10 bg-[var(--surface)] text-[16px] text-[var(--text-2)] focus:outline-none transition-all duration-250 cursor-pointer hover:border-slate-300 dark:hover:border-zinc-700 disabled:opacity-50"
+                  className="w-full border border-[var(--border)] focus:border-[var(--indigo)] focus:ring-2 focus:ring-[var(--indigo)]/10 bg-[var(--surface)] text-[16px] text-[var(--text-2)] focus:outline-none transition-all duration-250 cursor-pointer hover:border-slate-300 dark:hover:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ height: "48px", borderRadius: "12px", paddingLeft: "16px", paddingRight: "44px", appearance: "none", WebkitAppearance: "none", MozAppearance: "none" }}
                 >
                   <option value="Easy">Easy</option>
@@ -563,7 +593,7 @@ export default function QuizPage() {
               <input
                 type="number"
                 min={1}
-                disabled={generatingQuiz}
+                disabled={generatingQuiz || (creditsInfo !== null && creditsInfo.remaining === 0)}
                 value={numQuestions === 0 ? "" : numQuestions}
                 onChange={(e) => {
                   setMcqValidationError(false);
@@ -593,48 +623,57 @@ export default function QuizPage() {
                     : creditsInfo && numQuestions > creditsInfo.remaining && numQuestions > 0
                     ? "border-amber-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/10"
                     : "border-[var(--border)] focus:border-[var(--indigo)] focus:ring-2 focus:ring-[var(--indigo)]/10"
-                } bg-[var(--surface)] px-4 text-base font-bold text-[var(--text-1)] focus:outline-none transition-all duration-250 hover:border-slate-300 dark:hover:border-zinc-700 disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                } bg-[var(--surface)] px-4 text-base font-bold text-[var(--text-1)] focus:outline-none transition-all duration-250 hover:border-slate-300 dark:hover:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                 style={{ height: "48px", borderRadius: "12px" }}
               />
-              {/* Real-time credit warning under the input */}
-              {creditsInfo && numQuestions > 0 && numQuestions > creditsInfo.remaining && (
-                <div className="flex items-center gap-1.5 mt-1.5 animate-in fade-in duration-150">
-                  <svg className="w-3 h-3 flex-shrink-0" style={{ color: "#d97706" }} fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-[11px] font-semibold" style={{ color: "#d97706" }}>
-                    Only {creditsInfo.remaining} credit{creditsInfo.remaining !== 1 ? "s" : ""} left today
-                  </span>
-                </div>
-              )}
             </div>
 
 
             {/* Right: Primary CTA */}
-            <div className="col-span-1 md:col-span-1 lg:col-span-1">
-              <button
-                onClick={handleGenerateQuiz}
-                disabled={generatingQuiz}
-                className="w-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-sm font-semibold disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 btn-premium-shine"
-                style={{ height: "48px", borderRadius: "12px" }}
+            <div className="col-span-1 md:col-span-1 lg:col-span-1 relative">
+              {creditsInfo !== null && creditsInfo.remaining === 0 && showTooltip && (
+                <div 
+                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 px-3 py-2 bg-zinc-900 text-white dark:bg-zinc-800 dark:border-zinc-700 text-xs font-semibold rounded-lg shadow-lg border border-zinc-800 flex flex-col items-center text-center whitespace-nowrap z-30 animate-in fade-in slide-in-from-bottom-1 duration-150"
+                  style={{ pointerEvents: "none" }}
+                >
+                  <span>Daily limit reached.</span>
+                  <span>Come back tomorrow.</span>
+                  <div className="w-2 h-2 bg-zinc-900 dark:bg-zinc-800 border-r border-b border-zinc-800 dark:border-zinc-700 rotate-45 absolute -bottom-1 left-1/2 -translate-x-1/2"></div>
+                </div>
+              )}
+              <div
+                className="w-full h-full"
+                onMouseEnter={() => {
+                  if (creditsInfo !== null && creditsInfo.remaining === 0) {
+                    setShowTooltip(true);
+                  }
+                }}
+                onMouseLeave={() => setShowTooltip(false)}
               >
-                {generatingQuiz ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4 text-white dark:text-zinc-950" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth={4} />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    <span>Generating...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4 flex-shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 21l-.813-5.096L3 15l5.187-.904L9 9l.813 5.096L15 15l-5.187.904zM18 10.5l-.5 3-.5-3-3-.5 3-.5.5-3 .5 3 3 .5-3 .5zM19 19.5l-.25 1.5-.25-1.5-1.5-.25 1.5-.25.25-1.5.25 1.5 1.5.25-1.5.25z" />
-                    </svg>
-                    <span>{numQuestions > 0 ? `Generate ${numQuestions} MCQs` : "Generate Quiz"}</span>
-                  </>
-                )}
-              </button>
+                <button
+                  onClick={handleGenerateQuiz}
+                  disabled={generatingQuiz || (creditsInfo !== null && creditsInfo.remaining === 0)}
+                  className="w-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-sm font-semibold disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 btn-premium-shine"
+                  style={{ height: "48px", borderRadius: "12px" }}
+                >
+                  {generatingQuiz ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 text-white dark:text-zinc-950" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth={4} />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <span>Generating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 flex-shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 21l-.813-5.096L3 15l5.187-.904L9 9l.813 5.096L15 15l-5.187.904zM18 10.5l-.5 3-.5-3-3-.5 3-.5.5-3 .5 3 3 .5-3 .5zM19 19.5l-.25 1.5-.25-1.5-1.5-.25 1.5-.25.25-1.5.25 1.5 1.5.25-1.5.25z" />
+                      </svg>
+                      <span>{numQuestions > 0 ? `Generate ${numQuestions} MCQs` : "Generate Quiz"}</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
           </div>
@@ -919,6 +958,49 @@ export default function QuizPage() {
           </div>
         )}
       </div>
+
+      {showLimitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div 
+            className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-7 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col items-center text-center space-y-4"
+            style={{ minHeight: "220px" }}
+          >
+            {/* Warning Bolt Icon */}
+            <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+              </svg>
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="text-lg font-extrabold text-[var(--text-1)]">
+                Daily limit reached
+              </h3>
+              
+              <p className="text-sm font-semibold text-[var(--text-2)]">
+                You&apos;ve used all {creditsInfo?.limit ?? 30} daily MCQs.
+              </p>
+              
+              <p className="text-xs text-[var(--text-4)] font-medium">
+                Your limit resets automatically
+                {creditsInfo?.resetAt
+                  ? ` at ${new Date(creditsInfo.resetAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })} (your local time).`
+                  : "."}
+              </p>
+            </div>
+            
+            <button
+              onClick={() => setShowLimitModal(false)}
+              className="w-full h-11 bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 rounded-xl text-sm font-bold hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer mt-2"
+            >
+              Okay
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Toast Notification */}
       {toast && (

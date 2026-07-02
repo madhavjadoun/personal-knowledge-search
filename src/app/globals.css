@@ -432,8 +432,13 @@ p { color: var(--text-3); }
 .nav-item.active {
   color: var(--indigo);
   font-weight: 600;
-  background: color-mix(in srgb, var(--indigo) 8%, transparent);
-  border-color: color-mix(in srgb, var(--indigo) 15%, transparent);
+  background: #F8FAFC;
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--indigo) !important;
+}
+.dark .nav-item.active {
+  background: rgba(255, 255, 255, 0.02);
+  border-color: var(--border-strong);
 }
 
 .lottie-menu-btn svg path,
@@ -814,6 +819,14 @@ p { color: var(--text-3); }
 
 .custom-footer-col-min {
   min-width: 180px;
+}
+
+/* Completely hide Next.js Dev Indicators & overlay elements */
+next-dev-indicator,
+#nextjs-portal,
+[data-nextjs-dialog-overlay],
+[data-nextjs-toast] {
+  display: none !important;
 }
 
 

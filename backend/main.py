@@ -26,16 +26,30 @@ app = FastAPI(
 )
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+def _allowed_origins() -> list[str]:
+    defaults = [
         "http://localhost:3000",
         "http://localhost:3001",
         "http://localhost:3002",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:3001",
         "http://127.0.0.1:3002",
-    ],
+    ]
+    configured = [
+        origin.strip()
+        for origin in (
+            os.getenv("CORS_ALLOWED_ORIGINS")
+            or os.getenv("ALLOWED_ORIGINS")
+            or ""
+        ).split(",")
+        if origin.strip()
+    ]
+    return list(dict.fromkeys(defaults + configured))
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

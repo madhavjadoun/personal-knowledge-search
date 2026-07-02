@@ -83,6 +83,28 @@ export default function DashboardPage() {
   const [recentDocs, setRecentDocs] = useState<RecentDoc[]>([]);
   const [hasDocs, setHasDocs] = useState(false);
   const [recentLogs, setRecentLogs] = useState<{ title: string; desc: string; time: string; type: string }[]>([]);
+  const [resetsIn, setResetsIn] = useState("");
+  const [creditsResetAt, setCreditsResetAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    const updateResetsIn = () => {
+      if (!creditsResetAt) {
+        setResetsIn("Resets soon");
+        return;
+      }
+
+      const nowMs = Date.now();
+      const resetMs = new Date(creditsResetAt).getTime();
+      const diffMs = Math.max(0, resetMs - nowMs);
+      const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      setResetsIn(`Resets in ${diffHrs}h ${diffMins}m`);
+    };
+
+    updateResetsIn();
+    const interval = setInterval(updateResetsIn, 60000);
+    return () => clearInterval(interval);
+  }, [creditsResetAt]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -111,6 +133,7 @@ export default function DashboardPage() {
               const credData = await credRes.json();
               creditsRemaining = credData.credits_remaining;
               creditsLimit = credData.credits_limit;
+              setCreditsResetAt(credData.reset_at ?? null);
             }
           }
         } catch (credErr) {
@@ -402,10 +425,14 @@ export default function DashboardPage() {
                             style={{ width: `${s.progress}%` }}
                           />
                         </div>
-                        <p className="text-[13px] font-bold text-[var(--text-2)] mt-2.5">{s.delta}</p>
+                        <p className="text-[13px] font-bold text-[var(--text-2)] mt-2.5">
+                          {s.label === "Today's Credits" ? resetsIn : s.delta}
+                        </p>
                       </div>
                     ) : (
-                      <p className="text-[13px] font-bold text-[var(--text-2)] mt-2.5">{s.delta}</p>
+                      <p className="text-[13px] font-bold text-[var(--text-2)] mt-2.5">
+                        {s.label === "Today's Credits" ? resetsIn : s.delta}
+                      </p>
                     )
                   )}
                 </div>

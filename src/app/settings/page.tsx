@@ -228,7 +228,7 @@ export default function SettingsPage() {
           await supabase.from("quiz_questions").delete().in("quiz_id", quizzes.map(q => q.id));
         }
         await supabase.from("quizzes").delete().in("document_id", docIds);
-        await supabase.from("chunks").delete().in("document_id", docIds);
+        await supabase.from("chunks").delete().in("document_id", docIds).eq("user_id", userId);
         for (const doc of docs) {
           await supabase.storage.from("documents").remove([`${userId}/${doc.file_name}`]);
         }

@@ -46,9 +46,10 @@ async def get_credit_status(
     try:
         row = get_or_create_daily_credits(user_id)
     except Exception as exc:
+        print(f"[credits] Failed to fetch credit status for user_id='{user_id}': {exc}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to fetch credit status: {exc}",
+            detail="Failed to fetch credit status.",
         ) from exc
 
     used      = row["credits_used"]

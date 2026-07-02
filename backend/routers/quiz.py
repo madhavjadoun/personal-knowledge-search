@@ -130,9 +130,10 @@ async def generate_quiz_endpoint(
     except HTTPException:
         raise  # re-raise our own 402
     except Exception as exc:
+        print(f"[quiz] Failed to check daily credits for user_id='{user_id}': {exc}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to check daily credits: {exc}",
+            detail="Failed to check daily credits.",
         ) from exc
 
     print(f"[quiz] Generate request — document_id='{document_id}', user_id='{user_id}', num_questions={num_questions}")
@@ -141,9 +142,10 @@ async def generate_quiz_endpoint(
     try:
         chunks = get_chunks(document_id)
     except Exception as exc:
+        print(f"[quiz] Failed to fetch chunks for document_id='{document_id}': {exc}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to fetch document chunks: {exc}",
+            detail="Failed to fetch document chunks.",
         ) from exc
 
     if not chunks:
@@ -184,19 +186,22 @@ async def generate_quiz_endpoint(
     try:
         questions = generate_quiz(combined_text, num_questions=num_questions)
     except ValueError as exc:
+        print(f"[quiz] Quiz generation validation failure: {exc}")
         raise HTTPException(
             status_code=422,
-            detail=f"Quiz generation failed — {exc}",
+            detail="Quiz generation failed. Please try again with a clearer document.",
         ) from exc
     except RuntimeError as exc:
+        print(f"[quiz] Quiz API unavailable: {exc}")
         raise HTTPException(
             status_code=503,
-            detail=f"Quiz API unavailable — {exc}",
+            detail="Quiz API unavailable. Please try again shortly.",
         ) from exc
     except Exception as exc:
+        print(f"[quiz] Unexpected quiz generation error: {exc}")
         raise HTTPException(
             status_code=500,
-            detail=f"Unexpected error during quiz generation: {exc}",
+            detail="Unexpected error during quiz generation.",
         ) from exc
 
     print(f"[quiz] Quiz API returned {len(questions)} valid question(s)")
@@ -206,9 +211,10 @@ async def generate_quiz_endpoint(
     try:
         quiz_id = save_quiz(document_id=document_id, questions=questions)
     except Exception as exc:
+        print(f"[quiz] Failed to save quiz for document_id='{document_id}': {exc}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to save quiz to database: {exc}",
+            detail="Failed to save quiz to database.",
         ) from exc
 
     print(f"[quiz] Quiz saved — quiz_id='{quiz_id}'")
@@ -239,7 +245,10 @@ async def generate_quiz_endpoint(
 # ── GET /quiz/history/{document_id} ──────────────────────────────────────────
 
 @router.get("/history/{document_id}")
-async def quiz_history(document_id: str) -> dict[str, Any]:
+async def quiz_history(
+    document_id: str,
+    user_id: str = Depends(get_current_user_id)
+) -> dict[str, Any]:
     """
     Return all quizzes (with nested questions) generated for a document.
 
@@ -253,14 +262,21 @@ async def quiz_history(document_id: str) -> dict[str, Any]:
     if not document_id:
         raise HTTPException(status_code=400, detail="document_id path parameter is required.")
 
-    print(f"[quiz] Fetching quiz history for document_id='{document_id}'")
+    if not check_document_ownership(document_id, user_id):
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden: You do not own this document."
+        )
+
+    print(f"[quiz] Fetching quiz history for document_id='{document_id}', user_id='{user_id}'")
 
     try:
         quizzes = get_quiz_history(document_id)
     except Exception as exc:
+        print(f"[quiz] Failed to fetch quiz history for document_id='{document_id}': {exc}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to fetch quiz history: {exc}",
+            detail="Failed to fetch quiz history.",
         ) from exc
 
     if not quizzes:
@@ -314,7 +330,7 @@ async def get_user_quiz_history(
         print(f"[history] Failed after {duration:.2f}ms: {exc}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to fetch user quiz history: {exc}"
+            detail="Failed to fetch user quiz history."
         ) from exc
 
 
@@ -356,9 +372,10 @@ async def submit_quiz_endpoint(
         )
         return {"success": True, "quiz": updated_quiz}
     except Exception as exc:
+        print(f"[quiz] Failed to update quiz_id='{quiz_id}': {exc}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to update quiz in database: {exc}"
+            detail="Failed to update quiz in database."
         ) from exc
 
 
@@ -400,9 +417,10 @@ async def get_quiz_by_id(
     except HTTPException:
         raise
     except Exception as exc:
+        print(f"[quiz] Failed to fetch quiz_id='{quiz_id}': {exc}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to fetch quiz details: {exc}"
+            detail="Failed to fetch quiz details."
         ) from exc
 
 
@@ -420,9 +438,10 @@ async def clear_all_quizzes_endpoint(
         delete_all_user_quizzes(user_id=user_id)
         return {"success": True, "message": "All quiz history cleared successfully."}
     except Exception as exc:
+        print(f"[quiz] Failed to clear quiz history for user_id='{user_id}': {exc}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to clear all quiz history: {exc}"
+            detail="Failed to clear all quiz history."
         ) from exc
 
 
@@ -453,11 +472,9 @@ async def delete_quiz_endpoint(
         delete_quiz(quiz_id=quiz_id)
         return {"success": True, "message": f"Quiz {quiz_id} deleted successfully."}
     except Exception as exc:
+        print(f"[quiz] Failed to delete quiz_id='{quiz_id}': {exc}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to delete quiz: {exc}"
+            detail="Failed to delete quiz."
         ) from exc
-
-
-
 

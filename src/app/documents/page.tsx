@@ -169,13 +169,6 @@ export default function DocumentsPage() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     const { data, error } = await supabase.auth.getSession();
-
-    console.log("========== SESSION ==========");
-    console.log("Session:", data.session);
-    console.log("User:", data.session?.user);
-    console.log("User ID:", data.session?.user?.id);
-    console.log("Error:", error);
-    console.log("=============================");
     if (!file) return;
 
     setUploadName(file.name);
@@ -192,7 +185,10 @@ export default function DocumentsPage() {
     }, 200);
 
     try {
-      if (!userId) {
+      const token = data.session?.access_token;
+      const authenticatedUserId = data.session?.user?.id || userId;
+
+      if (error || !token || !authenticatedUserId) {
         clearInterval(progressInterval);
         setUploading(false);
         setProgress(0);
@@ -203,13 +199,16 @@ export default function DocumentsPage() {
         return;
       }
 
-      console.log("[Documents Upload] Triggering PDF document upload and processing via FastAPI...");
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("user_id", userId);
+      formData.append("user_id", authenticatedUserId);
 
-      const processResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/documents/upload`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      const processResponse = await fetch(`${apiUrl}/documents/upload`, {
         method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
         body: formData
       });
 
@@ -226,7 +225,9 @@ export default function DocumentsPage() {
       }
 
       const responseData = await processResponse.json();
-      console.log("[Documents Upload] Document upload and processing complete. Response:", responseData);
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Documents Upload] Document upload and processing complete. Response:", responseData);
+      }
 
       clearInterval(progressInterval);
       setProgress(100);
@@ -256,7 +257,8 @@ export default function DocumentsPage() {
       const { error: chunkDeleteError } = await supabase
         .from("chunks")
         .delete()
-        .eq("document_id", doc.id);
+        .eq("document_id", doc.id)
+        .eq("user_id", userId);
 
       if (chunkDeleteError) {
         console.warn("Failed to delete chunks (may have CASCADE):", chunkDeleteError);
@@ -301,7 +303,7 @@ export default function DocumentsPage() {
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
-            accept=".pdf,.txt,.md,.sql,.py,.json"
+            accept="application/pdf,.pdf"
             className="hidden"
           />
           <button

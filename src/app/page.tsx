@@ -171,116 +171,61 @@ export default function WelcomePage() {
     }, 200);
 
     try {
-      // ── DIAGNOSTIC STEP 0: Full session audit ──────────────────────────────
-      // Use getSession() NOT getUser().
-      // getUser() validates the JWT server-side but the STORAGE client uses the
-      // cached access_token from the session object. If they diverge, storage
-      // sends the request as `anon` even though getUser() returned a user.
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      const session = sessionData?.session;
+      let session = sessionData?.session;
       const user = session?.user ?? null;
-
-      console.group("[Upload Diagnostic]");
-      console.log("Session error:", sessionError?.message ?? "none");
-      console.log("Session exists:", !!session);
-      console.log("Access token present:", !!session?.access_token);
-      console.log("Access token preview:", session?.access_token?.slice(0, 40) + "...");
-      console.log("Token expires at:", session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : "N/A");
-      console.log("Token expired:", session?.expires_at ? Date.now() / 1000 > session.expires_at : "unknown");
-      console.log("Current User ID:", user?.id ?? "NULL — not authenticated");
-      console.log("User email:", user?.email ?? "N/A");
-      console.log("Bucket name:", "documents");
-      console.log("Upload path:", user ? `${user.id}/${file.name}` : "N/A");
-      console.log("File name:", file.name);
-      console.log("File size:", file.size);
-      console.groupEnd();
 
       if (sessionError || !session || !user) {
         clearInterval(progressInterval);
         setDropped(null);
         setProgress(0);
-        console.error("[Upload] Auth check failed. sessionError:", sessionError, "session:", session);
+        if (process.env.NODE_ENV !== "production") {
+          console.error("[Upload] Auth check failed:", sessionError?.message);
+        }
         setShowAuthModal(true);
         return;
       }
 
       // If the token is about to expire, force a refresh before uploading
       if (session.expires_at && Date.now() / 1000 > session.expires_at - 60) {
-        console.log("[Upload] Token near expiry, refreshing...");
-        const { error: refreshError } = await supabase.auth.refreshSession();
+        const { data: refreshedSessionData, error: refreshError } = await supabase.auth.refreshSession();
         if (refreshError) console.warn("[Upload] Refresh failed:", refreshError.message);
+        session = refreshedSessionData.session || session;
       }
 
-      // ── STEP 1: Storage upload ─────────────────────────────────────────────
-      const storagePath = `${user.id}/${file.name}`;
-      console.log("[Upload] Starting storage upload to:", `documents/${storagePath}`);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("user_id", user.id);
 
-      const { data: storageData, error: storageError } = await supabase.storage
-        .from("documents")
-        .upload(storagePath, file, {
-          cacheControl: "3600",
-          upsert: true
-        });
-
-      // ── Full storage error dump ────────────────────────────────────────────
-      if (storageError) {
-        console.group("[Upload] Storage error — full dump");
-        console.error("error.message:", storageError.message);
-        console.error("error.name:", storageError.name);
-        console.error("error (full object):", JSON.stringify(storageError, null, 2));
-        console.groupEnd();
-        throw storageError;
-      }
-
-      console.log("[Upload] Storage upload succeeded:", storageData);
-
-      // ── STEP 2: Get public URL ─────────────────────────────────────────────
-      const { data: { publicUrl } } = supabase.storage
-        .from("documents")
-        .getPublicUrl(storagePath);
-
-      // ── STEP 3: DB insert ─────────────────────────────────────────────────
-      console.log("[Upload] Inserting into documents table. user_id:", user.id);
-      const { error: dbError } = await supabase
-        .from("documents")
-        .insert([{
-          user_id: user.id,
-          title: file.name,
-          file_name: file.name,
-          file_url: publicUrl,
-          file_size: file.size,
-          created_at: new Date().toISOString()
-        }]);
-
-      if (dbError) {
-        console.error("[Upload] DB insert error:", JSON.stringify(dbError, null, 2));
-        throw dbError;
-      }
-
-      console.log("[Upload] DB insert succeeded.");
-
-      // Trigger RAG document parsing pipeline asynchronously
-      console.log("[Upload] Triggering PDF document processing...");
-      fetch("/api/process", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      const processResponse = await fetch(`${apiUrl}/documents/upload`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.access_token || ""}`,
+          "Authorization": `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          storagePath,
-          fileName: file.name
-        })
-      }).then(async res => {
-        if (!res.ok) {
-          const errText = await res.text();
-          console.error("[Upload] Document processing error:", errText);
-        } else {
-          console.log("[Upload] Document processing triggered/finished successfully.");
-        }
-      }).catch(err => {
-        console.error("[Upload] Document processing trigger failed:", err);
+        body: formData,
       });
+
+      if (!processResponse.ok) {
+        const errText = await processResponse.text();
+        let errMsg = errText;
+        try {
+          const errObj = JSON.parse(errText);
+          if (errObj && typeof errObj === "object" && "detail" in errObj) {
+            errMsg = String(errObj.detail);
+          }
+        } catch {}
+        throw new Error(errMsg || `Document upload/processing failed with status: ${processResponse.status}`);
+      }
+
+      if (process.env.NODE_ENV !== "production") {
+        try {
+          const responseData = await processResponse.json();
+          console.log("[Upload] Document upload and processing complete.", responseData);
+        } catch {
+          console.log("[Upload] Document upload and processing complete.");
+        }
+      }
 
       clearInterval(progressInterval);
       setProgress(100);

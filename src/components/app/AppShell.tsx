@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -17,7 +17,7 @@ function SidebarToggle({ isOpen, onClick }: { isOpen: boolean; onClick: () => vo
     <button
       onClick={onClick}
       className="p-1 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center flex-shrink-0 cursor-pointer"
-      style={{ width: "36px", height: "36px", color: "var(--text-1)" }}
+      style={{ width: "36px", height: "36px", color: isOpen ? "var(--text-3)" : "var(--text-1)" }}
       aria-label="Toggle sidebar"
     >
       <svg className="w-5.5 h-5.5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
@@ -193,7 +193,6 @@ export default function AppShell({ children, title, subtitle, action, publicPage
     setTheme(isDark ? "light" : "dark");
   };
 
-  const userEmail = user?.email || "";
   const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split("@")[0] || "User";
   const userInitials = userName.slice(0, 2).toUpperCase();
   const userAvatar = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null;
@@ -205,7 +204,7 @@ export default function AppShell({ children, title, subtitle, action, publicPage
 
   /* ── Sidebar content ── */
   const SidebarContent = () => (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
 
       {/* Brand */}
       {/* Sidebar Header */}
@@ -220,9 +219,10 @@ export default function AppShell({ children, title, subtitle, action, publicPage
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-2.5 flex flex-col gap-0.5">
+      <nav className="flex-1 min-h-0 overflow-hidden p-2.5 flex flex-col gap-0.5">
         <p
-          className="text-[9px] font-semibold uppercase tracking-widest px-2 pb-1.5 pt-1 text-[var(--text-4)]"
+          className="text-[11px] font-bold uppercase px-2 pb-1.5 pt-1 text-slate-400 dark:text-zinc-500"
+          style={{ letterSpacing: "0.2em" }}
         >
           Workspace
         </p>
@@ -239,67 +239,23 @@ export default function AppShell({ children, title, subtitle, action, publicPage
         ))}
       </nav>
 
-      {/* Bottom section */}
-      <div style={{ borderTop: "1px solid var(--border)" }} className="p-3.5 space-y-3">
+      {/* Footer */}
+      <footer className="mt-auto border-t border-[var(--border)] px-5 py-4 shrink-0 flex flex-col gap-1.5">
         {/* Footer links */}
-        <div className="relative z-20 flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-[10px] font-semibold text-[var(--text-3)] select-none">
-          <a href="/faq" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-1)] transition-colors relative z-30">FAQ</a>
-          <span className="text-[var(--border)]">•</span>
-          <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-1)] transition-colors relative z-30">Privacy</a>
-          <span className="text-[var(--border)]">•</span>
-          <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-1)] transition-colors relative z-30">Terms</a>
-          <span className="text-[var(--border)]">•</span>
-          <a href="/contact" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-1)] transition-colors relative z-30">Contact</a>
+        <div className="relative z-20 flex items-center justify-center gap-2 text-xs font-medium text-slate-500 select-none">
+          <a href="/faq" target="_blank" rel="noopener noreferrer" className="hover:text-slate-900 dark:hover:text-zinc-200 transition-colors relative z-30">FAQ</a>
+          <span className="text-slate-300 dark:text-zinc-700 select-none">•</span>
+          <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-slate-900 dark:hover:text-zinc-200 transition-colors relative z-30">Privacy</a>
+          <span className="text-slate-300 dark:text-zinc-700 select-none">•</span>
+          <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-slate-900 dark:hover:text-zinc-200 transition-colors relative z-30">Terms</a>
+          <span className="text-slate-300 dark:text-zinc-700 select-none">•</span>
+          <a href="/contact" target="_blank" rel="noopener noreferrer" className="hover:text-slate-900 dark:hover:text-zinc-200 transition-colors relative z-30">Contact</a>
         </div>
-
-        {/* User row */}
-        {!user ? (
-          <Link
-            href="/login"
-            className="flex items-center justify-center w-full px-3 py-2 rounded-lg bg-[var(--indigo)] hover:bg-[var(--indigo)]/90 text-white text-xs font-bold transition-all cursor-pointer h-8 shadow-sm"
-          >
-            Sign In
-          </Link>
-        ) : (
-          <div className="flex items-center justify-between px-1 py-1">
-            <div className="flex items-center gap-2 min-w-0">
-              {userAvatar ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={userAvatar}
-                  alt={userName}
-                  className="h-7 w-7 rounded-lg object-cover flex-shrink-0"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <div
-                  className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-                  style={{ background: "linear-gradient(135deg, var(--indigo), var(--violet))" }}
-                >
-                  {userInitials}
-                </div>
-              )}
-              <div className="min-w-0">
-                <p className="text-xs font-semibold truncate" style={{ color: "var(--text-1)", letterSpacing: "-0.014em" }}>
-                  {userName}
-                </p>
-                <p className="text-[10px] truncate" style={{ color: "var(--text-3)" }}>
-                  {userEmail}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowLogoutModal(true)}
-              className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-zinc-400 hover:text-red-500 transition-colors flex-shrink-0 cursor-pointer"
-              title="Log out"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-          </button>
+        {/* Version */}
+        <div className="text-[11px] font-medium text-slate-500 opacity-60 text-center mt-1">
+          Version 1.0.0
         </div>
-      )}
-      </div>
+      </footer>
     </div>
   );
 
@@ -313,7 +269,7 @@ export default function AppShell({ children, title, subtitle, action, publicPage
   }
 
   return (
-    <div className="fixed inset-0 flex overflow-hidden app-bg">
+    <div className="fixed inset-0 flex overflow-hidden app-bg" style={{ height: "100vh" }}>
 
       {/* ── Aurora Glow (behind everything) ── */}
       <div className="aurora-tl" />
@@ -323,15 +279,16 @@ export default function AppShell({ children, title, subtitle, action, publicPage
       {/* ── Desktop Sidebar ── */}
       {!noSidebar && (
         <aside
-          className="glass-sidebar hidden md:flex flex-col flex-shrink-0 h-full relative z-10 transition-all duration-300 ease-in-out"
+          className="glass-sidebar hidden md:flex flex-col flex-shrink-0 z-10 transition-all duration-300 ease-in-out"
           style={{
             width: sidebarOpen ? "240px" : "0px",
             opacity: sidebarOpen ? 1 : 0,
             borderRight: sidebarOpen ? "1px solid var(--border)" : "none",
             overflow: "hidden",
+            height: "100vh",
           }}
         >
-          <div style={{ width: "240px", height: "100%", flexShrink: 0 }}>
+          <div className="flex h-full min-h-0 flex-col overflow-hidden" style={{ width: "240px", flexShrink: 0 }}>
             <SidebarContent />
           </div>
         </aside>
@@ -344,7 +301,7 @@ export default function AppShell({ children, title, subtitle, action, publicPage
             className="absolute inset-0 bg-black/30 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="glass-sidebar relative flex flex-col h-full z-10" style={{ width: "240px" }}>
+          <aside className="glass-sidebar relative flex w-60 flex-col overflow-hidden z-10" style={{ height: "100vh" }}>
             <SidebarContent />
           </aside>
         </div>

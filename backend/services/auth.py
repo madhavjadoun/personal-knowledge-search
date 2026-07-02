@@ -24,9 +24,11 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(secu
                 detail="Invalid or expired token",
             )
         return user_response.user.id
+    except HTTPException:
+        raise
     except Exception as err:
-        msg = getattr(err, "message", str(err))
+        print(f"[auth] Token verification failed: {err}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Token verification failed: {msg}",
+            detail="Token verification failed.",
         )
