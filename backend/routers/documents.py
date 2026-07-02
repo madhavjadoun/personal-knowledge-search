@@ -8,9 +8,11 @@ GET  /documents/list   — return all documents for a given user
 from __future__ import annotations
 
 import os
+import uuid
+import asyncio
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Request
 
 from services.auth import get_current_user_id
 from services.pdf_parser import parse_pdf
@@ -20,6 +22,7 @@ from services.supabase_client import (
     save_chunks,
     save_document,
 )
+from services.rate_limiter import upload_limiter, api_limiter
 
 router = APIRouter()
 
@@ -28,6 +31,13 @@ STORAGE_BUCKET = "documents"
 CHUNK_SIZE     = 500   # characters per chunk
 CHUNK_OVERLAP  = 50    # overlap between consecutive chunks
 DEFAULT_MAX_UPLOAD_MB = 25
+
+# ── Hardening Limits ──────────────────────────────────────────────────────────
+MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "100"))
+MAX_PDF_CHARS = int(os.getenv("MAX_PDF_CHARS", "500000"))
+
+# Concurrency semaphore to prevent overloading pdf parsing resources
+upload_semaphore = asyncio.Semaphore(5)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -100,6 +110,7 @@ async def _read_limited_upload(file: UploadFile, max_bytes: int) -> bytes:
 
 @router.post("/upload", status_code=201)
 async def upload_document(
+    request: Request,
     file: UploadFile = File(...),
     legacy_user_id: str | None = Form(None, alias="user_id"),
     current_user_id: str = Depends(get_current_user_id),
@@ -119,144 +130,176 @@ async def upload_document(
             "chunks_created": int,
         }
     """
-    # ── 1. Validate inputs ────────────────────────────────────────────────────
-    user_id = current_user_id.strip()
+    # ── Rate limiting ──────────────────────────────────────────────────────────
+    ip = request.client.host if request.client else "unknown"
+    api_limiter.check_rate_limit(f"api_ip:{ip}", ip)
+    api_limiter.check_rate_limit(f"api_user:{current_user_id}", ip)
+    upload_limiter.check_rate_limit(f"upload_ip:{ip}", ip)
+    upload_limiter.check_rate_limit(f"upload_user:{current_user_id}", ip)
 
-    submitted_user_id = (legacy_user_id or "").strip()
-    if submitted_user_id and submitted_user_id != current_user_id:
-        print("[documents] Ignoring mismatched legacy user_id form field.")
+    async with upload_semaphore:
+        # ── 1. Validate inputs ────────────────────────────────────────────────────
+        user_id = current_user_id.strip()
 
-    print(f"[documents] Upload request — filename='{file.filename}', authenticated_user_id='{current_user_id}'")
+        submitted_user_id = (legacy_user_id or "").strip()
+        if submitted_user_id and submitted_user_id != current_user_id:
+            print("[documents] Ignoring mismatched legacy user_id form field.")
 
-    if not file.filename or not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(
-            status_code=400,
-            detail="Only PDF files are accepted. Please upload a .pdf file.",
+        print(f"[documents] Upload request — filename='{file.filename}', authenticated_user_id='{current_user_id}'")
+
+        if not file.filename or not file.filename.lower().endswith(".pdf"):
+            raise HTTPException(
+                status_code=400,
+                detail="Only PDF files are accepted. Please upload a .pdf file.",
+            )
+        if file.content_type and file.content_type not in ("application/pdf", "application/x-pdf"):
+            raise HTTPException(
+                status_code=400,
+                detail="Only PDF files are accepted. Please upload a valid PDF.",
+            )
+
+        # ── Magic Byte Validation ─────────────────────────────────────────────
+        magic = await file.read(4)
+        await file.seek(0)
+        if magic != b"%PDF":
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid file format. The file is not a valid PDF document.",
+            )
+
+        # Generate a random UUID filename for storage path
+        file_uuid = str(uuid.uuid4())
+        safe_filename = f"{file_uuid}.pdf"
+        original_filename = os.path.basename(file.filename or "document.pdf")
+        title = original_filename.removesuffix(".pdf").removesuffix(".PDF").replace("_", " ").strip()
+        if not title:
+            title = "Untitled Document"
+
+        # ── 2. Read bytes ─────────────────────────────────────────────────────────
+        max_bytes = _max_upload_bytes()
+        file_bytes = await _read_limited_upload(file, max_bytes)
+        file_size  = len(file_bytes)
+        print(f"[documents] Read {file_size} bytes from original='{original_filename}' -> storage='{safe_filename}'")
+
+        if file_size == 0:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+        # ── 3. Parse PDF ──────────────────────────────────────────────────────────
+        print("[documents] Parsing PDF...")
+        try:
+            parsed = parse_pdf(file_bytes)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except Exception as exc:
+            print(f"[documents] Unexpected PDF parsing failure: {exc}")
+            raise HTTPException(
+                status_code=500,
+                detail="PDF parsing failed unexpectedly. Please try again with a different PDF.",
+            ) from exc
+
+        extracted_text: str  = parsed["text"]
+        is_large: bool       = parsed["is_large"]
+        pages: int           = parsed["pages"]
+
+        # Enforce page count and character limits
+        if pages > MAX_PDF_PAGES:
+            raise HTTPException(
+                status_code=422,
+                detail=f"PDF has too many pages ({pages}). Maximum allowed is {MAX_PDF_PAGES} pages.",
+            )
+        if len(extracted_text) > MAX_PDF_CHARS:
+            raise HTTPException(
+                status_code=422,
+                detail=f"PDF text content is too large ({len(extracted_text)} characters). Maximum allowed is {MAX_PDF_CHARS} characters.",
+            )
+
+        print(
+            f"[documents] Parsed — pages={pages}, chars={len(extracted_text)}, "
+            f"is_large={is_large}, title='{title}'"
         )
-    if file.content_type and file.content_type not in ("application/pdf", "application/x-pdf"):
-        raise HTTPException(
-            status_code=400,
-            detail="Only PDF files are accepted. Please upload a valid PDF.",
+
+        # ── 4. Upload original PDF to Supabase Storage ────────────────────────────
+        storage_path = f"{user_id}/{safe_filename}"
+        print(f"[documents] Uploading PDF to Storage — bucket='{STORAGE_BUCKET}', path='{storage_path}'")
+
+        try:
+            client = get_client()
+            client.storage.from_(STORAGE_BUCKET).upload(
+                path=storage_path,
+                file=file_bytes,
+                file_options={"content-type": "application/pdf", "upsert": "true"},
+            )
+            # Build a public URL/reference for the stored file
+            file_url: str = client.storage.from_(STORAGE_BUCKET).get_public_url(storage_path)
+            print(f"[documents] PDF uploaded — public URL: {file_url}")
+        except Exception as exc:
+            print(f"[documents] Storage upload failed: {exc}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to upload PDF to storage.",
+            ) from exc
+
+        # ── 5. Save document metadata ─────────────────────────────────────────────
+        print("[documents] Saving document metadata to database...")
+        try:
+            doc_row = save_document(
+                user_id=user_id,
+                title=title,
+                file_name=safe_filename,
+                file_size=file_size,
+                file_url=file_url,
+            )
+        except Exception as exc:
+            print(f"[documents] Failed to save document metadata: {exc}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to save document metadata.",
+            ) from exc
+
+        document_id: str = doc_row["id"]
+
+        # ── 6. Chunk and save text ────────────────────────────────────────────────
+        chunk_dicts: list[dict[str, Any]] = []
+
+        if is_large:
+            print(f"[documents] Large PDF — chunking text into {CHUNK_SIZE}-char segments...")
+            raw_chunks = _chunk_text(extracted_text)
+            chunk_dicts = [
+                {"content": chunk, "page_number": 1, "chunk_index": i}
+                for i, chunk in enumerate(raw_chunks)
+            ]
+            print(f"[documents] Created {len(chunk_dicts)} chunk(s)")
+        else:
+            print("[documents] Small PDF — saving as single chunk")
+            chunk_dicts = [{"content": extracted_text, "page_number": 1, "chunk_index": 0}]
+
+        try:
+            save_chunks(document_id=document_id, user_id=user_id, chunks=chunk_dicts)
+        except Exception as exc:
+            print(f"[documents] Failed to save text chunks: {exc}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to save text chunks.",
+            ) from exc
+
+        print(
+            f"[documents] Upload complete — document_id='{document_id}', "
+            f"chunks_created={len(chunk_dicts)}"
         )
 
-    # Sanitize the filename to prevent directory traversal or folder structure breakout
-    safe_filename = os.path.basename(file.filename)
-    if not safe_filename or not safe_filename.lower().endswith(".pdf"):
-        safe_filename = "uploaded_document.pdf"
-
-    # ── 2. Read bytes ─────────────────────────────────────────────────────────
-    max_bytes = _max_upload_bytes()
-    file_bytes = await _read_limited_upload(file, max_bytes)
-    file_size  = len(file_bytes)
-    print(f"[documents] Read {file_size} bytes from '{safe_filename}'")
-
-    if file_size == 0:
-        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
-
-    # ── 3. Parse PDF ──────────────────────────────────────────────────────────
-    print("[documents] Parsing PDF...")
-    try:
-        parsed = parse_pdf(file_bytes)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except Exception as exc:
-        print(f"[documents] Unexpected PDF parsing failure: {exc}")
-        raise HTTPException(
-            status_code=500,
-            detail="PDF parsing failed unexpectedly. Please try again with a different PDF.",
-        ) from exc
-
-    extracted_text: str  = parsed["text"]
-    is_large: bool       = parsed["is_large"]
-    pages: int           = parsed["pages"]
-    title: str           = safe_filename.removesuffix(".pdf").replace("_", " ").strip()
-
-    print(
-        f"[documents] Parsed — pages={pages}, chars={len(extracted_text)}, "
-        f"is_large={is_large}, title='{title}'"
-    )
-
-    # ── 4. Upload original PDF to Supabase Storage ────────────────────────────
-    storage_path = f"{user_id}/{safe_filename}"
-    print(f"[documents] Uploading PDF to Storage — bucket='{STORAGE_BUCKET}', path='{storage_path}'")
-
-    try:
-        client = get_client()
-        client.storage.from_(STORAGE_BUCKET).upload(
-            path=storage_path,
-            file=file_bytes,
-            file_options={"content-type": "application/pdf", "upsert": "true"},
-        )
-        # Build a public URL for the stored file
-        file_url: str = client.storage.from_(STORAGE_BUCKET).get_public_url(storage_path)
-        print(f"[documents] PDF uploaded — public URL: {file_url}")
-    except Exception as exc:
-        print(f"[documents] Storage upload failed: {exc}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to upload PDF to storage.",
-        ) from exc
-
-    # ── 5. Save document metadata ─────────────────────────────────────────────
-    print("[documents] Saving document metadata to database...")
-    try:
-        doc_row = save_document(
-            user_id=user_id,
-            title=title,
-            file_name=safe_filename,
-            file_size=file_size,
-            file_url=file_url,
-        )
-    except Exception as exc:
-        print(f"[documents] Failed to save document metadata: {exc}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to save document metadata.",
-        ) from exc
-
-    document_id: str = doc_row["id"]
-
-    # ── 6. Chunk and save text ────────────────────────────────────────────────
-    chunk_dicts: list[dict[str, Any]] = []
-
-    if is_large:
-        print(f"[documents] Large PDF — chunking text into {CHUNK_SIZE}-char segments...")
-        raw_chunks = _chunk_text(extracted_text)
-        chunk_dicts = [
-            {"content": chunk, "page_number": 1, "chunk_index": i}
-            for i, chunk in enumerate(raw_chunks)
-        ]
-        print(f"[documents] Created {len(chunk_dicts)} chunk(s)")
-    else:
-        print("[documents] Small PDF — saving as single chunk")
-        chunk_dicts = [{"content": extracted_text, "page_number": 1, "chunk_index": 0}]
-
-    try:
-        save_chunks(document_id=document_id, user_id=user_id, chunks=chunk_dicts)
-    except Exception as exc:
-        print(f"[documents] Failed to save text chunks: {exc}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to save text chunks.",
-        ) from exc
-
-    print(
-        f"[documents] Upload complete — document_id='{document_id}', "
-        f"chunks_created={len(chunk_dicts)}"
-    )
-
-    return {
-        "document_id":    document_id,
-        "title":          title,
-        "is_large":       is_large,
-        "chunks_created": len(chunk_dicts),
-    }
+        return {
+            "document_id":    document_id,
+            "title":          title,
+            "is_large":       is_large,
+            "chunks_created": len(chunk_dicts),
+        }
 
 
 # ── GET /documents/list ───────────────────────────────────────────────────────
 
 @router.get("/list")
 async def list_documents(
+    request: Request,
     user_id: str | None = None,
     current_user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
@@ -269,6 +312,11 @@ async def list_documents(
     Returns:
         {"documents": [...]}
     """
+    # ── Rate limiting ──────────────────────────────────────────────────────────
+    ip = request.client.host if request.client else "unknown"
+    api_limiter.check_rate_limit(f"api_ip:{ip}", ip)
+    api_limiter.check_rate_limit(f"api_user:{current_user_id}", ip)
+
     if user_id and user_id.strip() != current_user_id:
         print("[documents] Ignoring mismatched legacy user_id query parameter.")
 
@@ -283,5 +331,5 @@ async def list_documents(
             detail="Failed to fetch documents.",
         ) from exc
 
-    print(f"[documents] Returning {len(docs)} document(s)")
     return {"documents": docs}
+

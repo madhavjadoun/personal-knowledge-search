@@ -39,6 +39,10 @@ function formatUploadedDate(dateStr?: string) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function getDocumentDisplayName(doc?: DocumentItem) {
+  return doc?.title?.trim() || doc?.file_name || "Document";
+}
+
 export default function QuizPage() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [selectedDocId, setSelectedDocId] = useState<string>("");
@@ -452,6 +456,7 @@ export default function QuizPage() {
   };
 
   const selectedDoc = documents.find(d => d.id === selectedDocId);
+  const selectedDocName = getDocumentDisplayName(selectedDoc);
 
   return (
     <AppShell title="Quiz Generator" subtitle="Generate AI-powered MCQs from your uploaded PDFs.">
@@ -810,7 +815,7 @@ export default function QuizPage() {
             <div className="flex items-center gap-2 mb-6">
               <span className="text-lg">📄</span>
               <span className="text-base font-bold text-[var(--text-1)] truncate max-w-[400px]">
-                {selectedDoc.file_name || selectedDoc.title}
+                {selectedDocName}
               </span>
             </div>
             

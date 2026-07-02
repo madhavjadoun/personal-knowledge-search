@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 
 interface SupabaseDoc {
   id: string;
+  title?: string | null;
   file_name: string;
   file_url: string;
   file_size: number;
@@ -36,6 +37,10 @@ function formatBytes(bytes: number, decimals = 1) {
 }
 
 const STORAGE_BUCKET = "documents";
+
+function getDocumentDisplayName(doc: SupabaseDoc) {
+  return doc.title?.trim() || doc.file_name;
+}
 
 export default function DocumentsPage() {
   const [docs, setDocs] = useState<SupabaseDoc[]>([]);
@@ -423,6 +428,7 @@ export default function DocumentsPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-[var(--bg-2)]/30">
               {docs.map((doc) => {
+                const displayName = getDocumentDisplayName(doc);
                 const lastDot = doc.file_name.lastIndexOf(".");
                 const ext = lastDot !== -1 ? doc.file_name.substring(lastDot + 1).toUpperCase() : "PDF";
                 const extStyle = EXT_STYLE[ext] ?? { bg: "var(--bg-2)", color: "var(--text-2)" };
@@ -454,9 +460,9 @@ export default function DocumentsPage() {
                           </span>
                           <span
                             className="text-[15px] font-bold text-[var(--text-1)] truncate leading-6"
-                            title={doc.file_name}
+                            title={displayName}
                           >
-                            {doc.file_name}
+                            {displayName}
                           </span>
                         </div>
 
@@ -526,7 +532,7 @@ export default function DocumentsPage() {
           <div className="glass-card rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border border-[var(--border)] animate-in fade-in zoom-in-95 duration-200 bg-[var(--surface-2)]">
             <h3 className="text-base font-bold text-[var(--text-1)]">Delete Document</h3>
             <p className="text-sm text-[var(--text-3)] mt-2 leading-relaxed">
-              Are you sure you want to delete <span className="font-semibold text-[var(--text-1)]">"{docToDelete.file_name}"</span>? This action cannot be undone.
+              Are you sure you want to delete <span className="font-semibold text-[var(--text-1)]">&quot;{getDocumentDisplayName(docToDelete)}&quot;</span>? This action cannot be undone.
             </p>
             <div className="flex items-center justify-end gap-2.5 mt-5">
               <button

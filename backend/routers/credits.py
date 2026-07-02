@@ -9,9 +9,10 @@ from __future__ import annotations
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from services.auth import get_current_user_id
+from services.rate_limiter import api_limiter
 from services.supabase_client import get_or_create_daily_credits
 
 router = APIRouter()
@@ -30,6 +31,7 @@ def _next_midnight_utc() -> str:
 
 @router.get("/status")
 async def get_credit_status(
+    request: Request,
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """
@@ -43,6 +45,11 @@ async def get_credit_status(
             "reset_at":          str,   # ISO-8601 UTC timestamp of next reset
         }
     """
+    # ── Rate limiting ──────────────────────────────────────────────────────────
+    ip = request.client.host if request.client else "unknown"
+    api_limiter.check_rate_limit(f"api_ip:{ip}", ip)
+    api_limiter.check_rate_limit(f"api_user:{user_id}", ip)
+
     try:
         row = get_or_create_daily_credits(user_id)
     except Exception as exc:

@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import random
 import time
+import asyncio
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 
 from services.auth import get_current_user_id
@@ -29,16 +30,21 @@ from services.supabase_client import (
     save_quiz,
     update_quiz,
 )
+from services.rate_limiter import quiz_limiter, api_limiter
 
 router = APIRouter()
 
-
+# Concurrency semaphore to restrict parallel quiz generations (saves Gemini quota)
+quiz_semaphore = asyncio.Semaphore(5)
 
 
 # ── Request models ────────────────────────────────────────────────────────────
 
 class GenerateQuizRequest(BaseModel):
     """Request body for POST /quiz/generate."""
+    model_config = {
+        "extra": "forbid"
+    }
 
     document_id: str
     """UUID of the document to generate a quiz from."""
@@ -49,6 +55,9 @@ class GenerateQuizRequest(BaseModel):
 
 class SubmitQuizRequest(BaseModel):
     """Request body for POST /quiz/submit."""
+    model_config = {
+        "extra": "forbid"
+    }
 
     quiz_id: str
     status: str
@@ -56,10 +65,12 @@ class SubmitQuizRequest(BaseModel):
 
 
 
+
 # ── POST /quiz/generate ───────────────────────────────────────────────────────
 
 @router.post("/generate", status_code=201)
 async def generate_quiz_endpoint(
+    request: Request,
     body: GenerateQuizRequest,
     user_id: str = Depends(get_current_user_id)
 ) -> dict[str, Any]:
@@ -90,148 +101,157 @@ async def generate_quiz_endpoint(
             ]
         }
     """
-    document_id = body.document_id.strip()
-    num_questions = body.num_questions
+    # ── Rate limiting ──────────────────────────────────────────────────────────
+    ip = request.client.host if request.client else "unknown"
+    api_limiter.check_rate_limit(f"api_ip:{ip}", ip)
+    api_limiter.check_rate_limit(f"api_user:{user_id}", ip)
+    quiz_limiter.check_rate_limit(f"quiz_ip:{ip}", ip)
+    quiz_limiter.check_rate_limit(f"quiz_user:{user_id}", ip)
 
-    if not document_id:
-        raise HTTPException(
-            status_code=400,
-            detail="document_id must be a non-empty string."
-        )
+    async with quiz_semaphore:
+        document_id = body.document_id.strip()
+        num_questions = body.num_questions
 
-    if num_questions < 1 or num_questions > 50:
-        raise HTTPException(
-            status_code=400,
-            detail="Number of questions (num_questions) must be between 1 and 50."
-        )
-
-    # Verify ownership of the document
-    if not check_document_ownership(document_id, user_id):
-        raise HTTPException(
-            status_code=403,
-            detail="Forbidden: You do not own this document."
-        )
-
-    # ── Credit check — BEFORE the Gemini call ─────────────────────────────────
-    try:
-        credit_row = get_or_create_daily_credits(user_id)
-        credits_used  = credit_row["credits_used"]
-        credits_limit = credit_row["credits_limit"]
-        remaining     = credits_limit - credits_used
-        if num_questions > remaining:
+        if not document_id:
             raise HTTPException(
-                status_code=402,
+                status_code=400,
+                detail="document_id must be a non-empty string."
+            )
+
+        if num_questions < 1 or num_questions > 50:
+            raise HTTPException(
+                status_code=400,
+                detail="Number of questions (num_questions) must be between 1 and 50."
+            )
+
+        # Verify ownership of the document
+        if not check_document_ownership(document_id, user_id):
+            raise HTTPException(
+                status_code=403,
+                detail="Forbidden: You do not own this document."
+            )
+
+        # ── Credit check — BEFORE the Gemini call ─────────────────────────────────
+        try:
+            credit_row = get_or_create_daily_credits(user_id)
+            credits_used  = credit_row["credits_used"]
+            credits_limit = credit_row["credits_limit"]
+            remaining     = credits_limit - credits_used
+            if num_questions > remaining:
+                raise HTTPException(
+                    status_code=402,
+                    detail=(
+                        f"Insufficient credits: generating {num_questions} MCQs requires {num_questions} credits, "
+                        f"but you only have {remaining} remaining today (limit: {credits_limit}/day). "
+                        f"Your credits reset at midnight UTC."
+                    ),
+                )
+        except HTTPException:
+            raise  # re-raise our own 402
+        except Exception as exc:
+            print(f"[quiz] Failed to check daily credits for user_id='{user_id}': {exc}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to check daily credits.",
+            ) from exc
+
+        print(f"[quiz] Generate request — document_id='{document_id}', user_id='{user_id}', num_questions={num_questions}")
+
+        # ── 1. Fetch chunks ───────────────────────────────────────────────────────
+        try:
+            chunks = get_chunks(document_id)
+        except Exception as exc:
+            print(f"[quiz] Failed to fetch chunks for document_id='{document_id}': {exc}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to fetch document chunks.",
+            ) from exc
+
+        if not chunks:
+            raise HTTPException(
+                status_code=404,
                 detail=(
-                    f"Insufficient credits: generating {num_questions} MCQs requires {num_questions} credits, "
-                    f"but you only have {remaining} remaining today (limit: {credits_limit}/day). "
-                    f"Your credits reset at midnight UTC."
+                    f"No chunks found for document_id='{document_id}'. "
+                    "Ensure the document was uploaded and processed successfully."
                 ),
             )
-    except HTTPException:
-        raise  # re-raise our own 402
-    except Exception as exc:
-        print(f"[quiz] Failed to check daily credits for user_id='{user_id}': {exc}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to check daily credits.",
-        ) from exc
 
-    print(f"[quiz] Generate request — document_id='{document_id}', user_id='{user_id}', num_questions={num_questions}")
+        print(f"[quiz] Found {len(chunks)} chunk(s) for document '{document_id}'")
 
-    # ── 1. Fetch chunks ───────────────────────────────────────────────────────
-    try:
-        chunks = get_chunks(document_id)
-    except Exception as exc:
-        print(f"[quiz] Failed to fetch chunks for document_id='{document_id}': {exc}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to fetch document chunks.",
-        ) from exc
+        # ── 2. Select chunks ──────────────────────────────────────────────────────
+        is_large = len(chunks) > 1
 
-    if not chunks:
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                f"No chunks found for document_id='{document_id}'. "
-                "Ensure the document was uploaded and processed successfully."
-            ),
-        )
+        if is_large:
+            # Dynamically scale chunk sample size to coverage requirements:
+            # e.g., 5 MCQs -> 3-4 chunks, 10 MCQs -> 6-8 chunks, 50 MCQs -> 30-35 chunks.
+            calculated_sample_size = int(num_questions * 0.6) + 1
+            sample_size = min(calculated_sample_size, len(chunks))
+            selected = random.sample(chunks, sample_size)
+            # Re-sort by chunk_index to keep reading order
+            selected.sort(key=lambda c: c.get("chunk_index", 0))
+            print(
+                f"[quiz] Large PDF — sampled {sample_size}/{len(chunks)} chunk(s) (target was {calculated_sample_size}) "
+                f"(indices: {[c.get('chunk_index') for c in selected]})"
+            )
+        else:
+            selected = chunks
+            print("[quiz] Small PDF — using single chunk as full context")
 
-    print(f"[quiz] Found {len(chunks)} chunk(s) for document '{document_id}'")
+        combined_text: str = "\n\n".join(c["content"] for c in selected)
+        print(f"[quiz] Combined context length: {len(combined_text)} chars")
 
-    # ── 2. Select chunks ──────────────────────────────────────────────────────
-    is_large = len(chunks) > 1
+        # ── 3. Generate quiz via Gemini ───────────────────────────────────────────
+        print(f"[quiz] Calling Gemini/Quiz API to generate {num_questions} questions...")
+        try:
+            questions = generate_quiz(combined_text, num_questions=num_questions)
+        except ValueError as exc:
+            print(f"[quiz] Quiz generation validation failure: {exc}")
+            raise HTTPException(
+                status_code=422,
+                detail="Quiz generation failed. Please try again with a clearer document.",
+            ) from exc
+        except RuntimeError as exc:
+            print(f"[quiz] Quiz API unavailable: {exc}")
+            raise HTTPException(
+                status_code=503,
+                detail="Quiz API unavailable. Please try again shortly.",
+            ) from exc
+        except Exception as exc:
+            print(f"[quiz] Unexpected quiz generation error: {exc}")
+            raise HTTPException(
+                status_code=500,
+                detail="Unexpected error during quiz generation.",
+            ) from exc
 
-    if is_large:
-        # Dynamically scale chunk sample size to coverage requirements:
-        # e.g., 5 MCQs -> 3-4 chunks, 10 MCQs -> 6-8 chunks, 50 MCQs -> 30-35 chunks.
-        calculated_sample_size = int(num_questions * 0.6) + 1
-        sample_size = min(calculated_sample_size, len(chunks))
-        selected = random.sample(chunks, sample_size)
-        # Re-sort by chunk_index to keep reading order
-        selected.sort(key=lambda c: c.get("chunk_index", 0))
-        print(
-            f"[quiz] Large PDF — sampled {sample_size}/{len(chunks)} chunk(s) (target was {calculated_sample_size}) "
-            f"(indices: {[c.get('chunk_index') for c in selected]})"
-        )
-    else:
-        selected = chunks
-        print("[quiz] Small PDF — using single chunk as full context")
+        print(f"[quiz] Quiz API returned {len(questions)} valid question(s)")
 
-    combined_text: str = "\n\n".join(c["content"] for c in selected)
-    print(f"[quiz] Combined context length: {len(combined_text)} chars")
+        # ── 4. Persist quiz to Supabase ───────────────────────────────────────────
+        print("[quiz] Saving quiz to Supabase...")
+        try:
+            quiz_id = save_quiz(document_id=document_id, questions=questions)
+        except Exception as exc:
+            print(f"[quiz] Failed to save quiz for document_id='{document_id}': {exc}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to save quiz to database.",
+            ) from exc
 
-    # ── 3. Generate quiz via Gemini ───────────────────────────────────────────
-    print(f"[quiz] Calling Gemini/Quiz API to generate {num_questions} questions...")
-    try:
-        questions = generate_quiz(combined_text, num_questions=num_questions)
-    except ValueError as exc:
-        print(f"[quiz] Quiz generation validation failure: {exc}")
-        raise HTTPException(
-            status_code=422,
-            detail="Quiz generation failed. Please try again with a clearer document.",
-        ) from exc
-    except RuntimeError as exc:
-        print(f"[quiz] Quiz API unavailable: {exc}")
-        raise HTTPException(
-            status_code=503,
-            detail="Quiz API unavailable. Please try again shortly.",
-        ) from exc
-    except Exception as exc:
-        print(f"[quiz] Unexpected quiz generation error: {exc}")
-        raise HTTPException(
-            status_code=500,
-            detail="Unexpected error during quiz generation.",
-        ) from exc
+        print(f"[quiz] Quiz saved — quiz_id='{quiz_id}'")
 
-    print(f"[quiz] Quiz API returned {len(questions)} valid question(s)")
+        # ── 5. Consume credits — AFTER successful generation ──────────────────────
+        try:
+            updated_credits = consume_credits(user_id=user_id, amount=num_questions)
+            credits_remaining_after = updated_credits["credits_limit"] - updated_credits["credits_used"]
+            print(f"[quiz] Credits consumed — {num_questions} used, {credits_remaining_after} remaining today")
+        except ValueError as exc:
+            # Extremely unlikely (race condition), but handle gracefully.
+            # Quiz is already saved — don't block the response, just log.
+            print(f"[quiz] WARNING: Credit consumption failed after generation: {exc}")
+            credits_remaining_after = None
+        except Exception as exc:
+            print(f"[quiz] WARNING: Unexpected error consuming credits: {exc}")
+            credits_remaining_after = None
 
-    # ── 4. Persist quiz to Supabase ───────────────────────────────────────────
-    print("[quiz] Saving quiz to Supabase...")
-    try:
-        quiz_id = save_quiz(document_id=document_id, questions=questions)
-    except Exception as exc:
-        print(f"[quiz] Failed to save quiz for document_id='{document_id}': {exc}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to save quiz to database.",
-        ) from exc
-
-    print(f"[quiz] Quiz saved — quiz_id='{quiz_id}'")
-
-    # ── 5. Consume credits — AFTER successful generation ──────────────────────
-    try:
-        updated_credits = consume_credits(user_id=user_id, amount=num_questions)
-        credits_remaining_after = updated_credits["credits_limit"] - updated_credits["credits_used"]
-        print(f"[quiz] Credits consumed — {num_questions} used, {credits_remaining_after} remaining today")
-    except ValueError as exc:
-        # Extremely unlikely (race condition), but handle gracefully.
-        # Quiz is already saved — don't block the response, just log.
-        print(f"[quiz] WARNING: Credit consumption failed after generation: {exc}")
-        credits_remaining_after = None
-    except Exception as exc:
-        print(f"[quiz] WARNING: Unexpected error consuming credits: {exc}")
-        credits_remaining_after = None
 
     # ── 6. Return full quiz payload ───────────────────────────────────────────
     return {
@@ -246,6 +266,7 @@ async def generate_quiz_endpoint(
 
 @router.get("/history/{document_id}")
 async def quiz_history(
+    request: Request,
     document_id: str,
     user_id: str = Depends(get_current_user_id)
 ) -> dict[str, Any]:
@@ -258,6 +279,11 @@ async def quiz_history(
     Returns:
         {"quizzes": [...]}
     """
+    # ── Rate limiting ──────────────────────────────────────────────────────────
+    ip = request.client.host if request.client else "unknown"
+    api_limiter.check_rate_limit(f"api_ip:{ip}", ip)
+    api_limiter.check_rate_limit(f"api_user:{user_id}", ip)
+
     document_id = document_id.strip()
     if not document_id:
         raise HTTPException(status_code=400, detail="document_id path parameter is required.")
@@ -293,11 +319,17 @@ async def quiz_history(
 
 @router.get("/user-history")
 async def get_user_quiz_history(
+    request: Request,
     user_id: str = Depends(get_current_user_id)
 ) -> dict[str, Any]:
     """
     Fetch all quizzes associated with the user's documents.
     """
+    # ── Rate limiting ──────────────────────────────────────────────────────────
+    ip = request.client.host if request.client else "unknown"
+    api_limiter.check_rate_limit(f"api_ip:{ip}", ip)
+    api_limiter.check_rate_limit(f"api_user:{user_id}", ip)
+
     start_time = time.time()
     print(f"[history] Request received: GET /quiz/user-history")
     print(f"[history] Authenticated user ID: {user_id}")
@@ -334,17 +366,22 @@ async def get_user_quiz_history(
         ) from exc
 
 
-
 # ── POST /quiz/submit ────────────────────────────────────────────────────────
 
 @router.post("/submit")
 async def submit_quiz_endpoint(
+    request: Request,
     body: SubmitQuizRequest,
     user_id: str = Depends(get_current_user_id)
 ) -> dict[str, Any]:
     """
     Submit/save a completed quiz attempt. Updates status and total_questions.
     """
+    # ── Rate limiting ──────────────────────────────────────────────────────────
+    ip = request.client.host if request.client else "unknown"
+    api_limiter.check_rate_limit(f"api_ip:{ip}", ip)
+    api_limiter.check_rate_limit(f"api_user:{user_id}", ip)
+
     quiz_id = body.quiz_id.strip()
     status = body.status.strip()
     total_questions = body.total_questions
@@ -383,12 +420,18 @@ async def submit_quiz_endpoint(
 
 @router.get("/{quiz_id}")
 async def get_quiz_by_id(
+    request: Request,
     quiz_id: str,
     user_id: str = Depends(get_current_user_id)
 ) -> dict[str, Any]:
     """
     Fetch a single quiz by its UUID, including nested questions, if the user owns it.
     """
+    # ── Rate limiting ───────────────────────────────────
+    ip = request.client.host if request.client else "unknown"
+    api_limiter.check_rate_limit(f"api_ip:{ip}", ip)
+    api_limiter.check_rate_limit(f"api_user:{user_id}", ip)
+
     quiz_id = quiz_id.strip()
     if not quiz_id:
         raise HTTPException(status_code=400, detail="quiz_id path parameter is required.")
@@ -428,11 +471,17 @@ async def get_quiz_by_id(
 
 @router.delete("/clear-all")
 async def clear_all_quizzes_endpoint(
+    request: Request,
     user_id: str = Depends(get_current_user_id)
 ) -> dict[str, Any]:
     """
     Delete all quiz history belonging to the authenticated user.
     """
+    # ── Rate limiting ──────────────────────────────────────────────────────────
+    ip = request.client.host if request.client else "unknown"
+    api_limiter.check_rate_limit(f"api_ip:{ip}", ip)
+    api_limiter.check_rate_limit(f"api_user:{user_id}", ip)
+
     print(f"[quiz] Clear all request — user_id='{user_id}'")
     try:
         delete_all_user_quizzes(user_id=user_id)
@@ -449,12 +498,18 @@ async def clear_all_quizzes_endpoint(
 
 @router.delete("/{quiz_id}")
 async def delete_quiz_endpoint(
+    request: Request,
     quiz_id: str,
     user_id: str = Depends(get_current_user_id)
 ) -> dict[str, Any]:
     """
     Delete a single quiz attempt by its ID.
     """
+    # ── Rate limiting ──────────────────────────────────────────────────────────
+    ip = request.client.host if request.client else "unknown"
+    api_limiter.check_rate_limit(f"api_ip:{ip}", ip)
+    api_limiter.check_rate_limit(f"api_user:{user_id}", ip)
+
     quiz_id = quiz_id.strip()
     if not quiz_id:
         raise HTTPException(status_code=400, detail="quiz_id path parameter is required.")
