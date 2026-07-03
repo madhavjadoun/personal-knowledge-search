@@ -314,19 +314,19 @@ export default function DocumentsPage() {
           <button
             onClick={triggerUploadClick}
             disabled={uploading}
-            className="grad-btn flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer shadow-sm hover:shadow hover:-translate-y-0.5 active:translate-y-0"
+            className="grad-btn flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer shadow-sm hover:shadow hover:-translate-y-0.5 active:translate-y-0 max-w-full min-w-0"
           >
             {uploading ? (
-              <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+              <svg className="w-4 h-4 animate-spin flex-shrink-0" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
             ) : (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
               </svg>
             )}
-            {uploading ? `Indexing ${progress}%` : "Upload File"}
+            <span className="truncate">{uploading ? `Indexing ${progress}%` : "Upload File"}</span>
           </button>
         </>
       }
@@ -335,15 +335,15 @@ export default function DocumentsPage() {
         {/* Ingestion progress banner */}
         {uploading && (
           <div
-            className="flex items-center gap-4 px-5 py-4 rounded-xl border border-[var(--border)] bg-[var(--bg-2)]/30"
+            className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 sm:px-6 py-4 sm:py-5 rounded-xl border border-[var(--border)] bg-[var(--bg-2)]/30"
           >
             <OrbitLoader size={36} />
 
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-[var(--text-1)]">
-                Indexing <span className="text-[var(--text-2)]">{uploadName}</span>
+                Indexing <span className="font-normal text-[var(--text-3)]">{uploadName}</span>
               </p>
-              <p className="text-xs text-[var(--text-4)] mt-0.5">
+              <p className="text-xs font-normal text-[var(--text-4)] mt-0.5 leading-relaxed">
                 Parsing text chunks and building vector embeddings...
               </p>
               <div className="mt-2 h-1 rounded-full overflow-hidden bg-[var(--bg-3)]">
@@ -354,7 +354,7 @@ export default function DocumentsPage() {
               </div>
             </div>
 
-            <span className="text-sm font-bold font-mono text-[var(--text-2)]">
+            <span className="text-sm font-semibold font-mono text-[var(--text-1)] tabular-nums flex-shrink-0 self-end sm:self-auto">
               {progress}%
             </span>
           </div>
@@ -364,30 +364,30 @@ export default function DocumentsPage() {
         <div className="glass-card rounded-xl overflow-hidden">
           {/* Section header with compact statistics pills */}
           <div
-            className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-5 border-b border-[var(--border)]"
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-4 sm:px-6 py-4 sm:py-5 border-b border-[var(--border)]"
           >
             <div>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--text-4)]">
+              <h3 className="text-card-label text-[var(--text-1)]">
                 Knowledge Library
               </h3>
-              <p className="text-[13px] font-normal text-[var(--text-4)] mt-0.5">
+              <p className="text-[13px] font-normal text-[var(--text-3)] mt-0.5 leading-relaxed">
                 Active documents indexed in vector database
               </p>
             </div>
 
             {/* Statistics compact pills */}
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                 <span>Documents:</span>
-                <span className="font-mono">{docs.length}</span>
+                <span className="font-semibold font-mono tabular-nums">{docs.length}</span>
               </div>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                 <span>Storage:</span>
-                <span className="font-mono">{formatBytes(totalStorage)}</span>
+                <span className="font-semibold font-mono tabular-nums">{formatBytes(totalStorage)}</span>
               </div>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                 <span>Chunks:</span>
-                <span className="font-mono">{docs.reduce((sum, doc) => sum + Math.max(1, Math.round(doc.file_size / 800)), 0)}</span>
+                <span className="font-semibold font-mono tabular-nums">{docs.reduce((sum, doc) => sum + Math.max(1, Math.round(doc.file_size / 800)), 0)}</span>
               </div>
             </div>
           </div>
@@ -396,7 +396,7 @@ export default function DocumentsPage() {
           {loading ? (
             <div className="flex flex-col items-center justify-center py-24 gap-3">
               <OrbitLoader size={40} />
-              <p className="text-sm font-semibold text-[var(--text-4)]">
+              <p className="text-sm font-medium text-[var(--text-4)]">
                 Syncing with vector index...
               </p>
             </div>
@@ -408,10 +408,10 @@ export default function DocumentsPage() {
                 </svg>
               </div>
               <div className="space-y-1">
-                <p className="text-base font-semibold text-[var(--text-2)]">
+                <p className="text-base font-semibold text-[var(--text-1)] tracking-tight">
                   No documents found
                 </p>
-                <p className="text-sm text-[var(--text-4)] max-w-[280px] mx-auto leading-relaxed">
+                <p className="text-sm font-normal text-[var(--text-3)] max-w-[280px] mx-auto leading-relaxed">
                   Upload your first document to begin building a searchable knowledge base.
                 </p>
               </div>
@@ -426,7 +426,7 @@ export default function DocumentsPage() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-[var(--bg-2)]/30">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 p-4 sm:p-6 bg-[var(--bg-2)]/30">
               {docs.map((doc) => {
                 const displayName = getDocumentDisplayName(doc);
                 const lastDot = doc.file_name.lastIndexOf(".");
@@ -442,12 +442,12 @@ export default function DocumentsPage() {
                 return (
                   <div
                     key={doc.id}
-                    className="glass-card rounded-xl px-6 py-4 flex flex-col justify-between h-[148px] relative group hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300"
+                    className="glass-card rounded-xl px-4 sm:px-6 py-4 flex flex-col justify-between lg:h-[148px] relative group hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 min-w-0 overflow-hidden"
                   >
-                    {/* Top Row: Ext badge, Filename, Synced status (perfectly centered vertically) */}
-                    <div className="space-y-4 min-w-0">
-                      <div className="flex items-center justify-between gap-3 min-w-0">
-                        <div className="flex items-center gap-3.5 min-w-0">
+                    {/* Top Row: Ext badge, Filename, Synced status */}
+                    <div className="space-y-3 sm:space-y-4 min-w-0">
+                      <div className="flex items-start sm:items-center justify-between gap-2 sm:gap-3 min-w-0">
+                        <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
                           <span
                             className="w-9 h-5 text-[10px] font-bold uppercase tracking-wider rounded-md border flex items-center justify-center flex-shrink-0"
                             style={{
@@ -459,35 +459,34 @@ export default function DocumentsPage() {
                             {ext}
                           </span>
                           <span
-                            className="text-[15px] font-bold text-[var(--text-1)] truncate leading-6"
+                            className="text-sm sm:text-[15px] font-semibold text-[var(--text-1)] truncate leading-6 min-w-0 tracking-tight"
                             title={displayName}
                           >
                             {displayName}
                           </span>
                         </div>
 
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--text-3)] border border-[var(--border)] px-1.5 py-0.5 rounded-md flex-shrink-0 leading-4">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[var(--text-4)] border border-[var(--border)] px-1.5 py-0.5 rounded-md flex-shrink-0 leading-4">
                           Synced
                         </span>
                       </div>
 
-                      {/* Compact Metadata Row (Left-aligned to filename at 50px offset) */}
-                      <div className="text-[13px] font-medium text-[var(--text-4)] flex items-center gap-1.5 pl-[50px] leading-relaxed">
-                        <span>{formatBytes(doc.file_size)}</span>
+                      {/* Compact Metadata Row */}
+                      <div className="text-xs sm:text-[13px] font-normal text-[var(--text-4)] flex flex-wrap items-center gap-x-1.5 gap-y-1 md:pl-[50px] leading-relaxed min-w-0">
+                        <span className="whitespace-nowrap">{formatBytes(doc.file_size)}</span>
+                        <span className="hidden sm:inline">•</span>
+                        <span className="whitespace-nowrap">{chunksCount} chunks</span>
                         <span>•</span>
-                        <span>{chunksCount} chunks</span>
-                        <span>•</span>
-                        <span>{formattedDate}</span>
+                        <span className="whitespace-nowrap">{formattedDate}</span>
                       </div>
                     </div>
 
-                    {/* Actions Panel (Footer reduced height, compact pt-3 border-t) */}
-                    <div className="flex items-center justify-between pt-3 mt-auto border-t border-[var(--border)] w-full">
-                      {/* Group Preview and Generate Quiz (Left-aligned to filename at 50px offset) */}
-                      <div className="flex items-center gap-4 pl-[50px]">
+                    {/* Actions Panel */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 mt-auto border-t border-[var(--border)] w-full min-w-0">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 md:pl-[50px] min-w-0 flex-1">
                         <button
                           onClick={(e) => handlePreview(doc, e)}
-                          className="flex items-center gap-1.5 text-[13px] font-semibold text-[var(--text-3)] hover:text-[var(--text-1)] transition-colors group/preview cursor-pointer bg-transparent border-0 p-0"
+                          className="flex items-center justify-center sm:justify-start gap-1.5 text-[13px] font-semibold text-[var(--text-3)] hover:text-[var(--text-1)] transition-colors group/preview cursor-pointer bg-transparent border-0 p-0 flex-shrink-0"
                         >
                           <svg className="w-4 h-4 flex-shrink-0 text-[var(--text-4)] group-hover/preview:text-[var(--text-2)] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.85}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
@@ -498,19 +497,18 @@ export default function DocumentsPage() {
 
                         <Link
                           href={`/chat?docId=${doc.id}`}
-                          className="flex items-center justify-center gap-1.5 px-4 h-8 text-[11px] font-semibold text-white dark:text-[var(--text-inv)] bg-[var(--indigo)] hover:bg-[var(--indigo)]/90 rounded-lg transition-all cursor-pointer shadow-sm hover:shadow text-center leading-none"
+                          className="flex items-center justify-center gap-1.5 px-3 sm:px-4 h-8 text-[11px] font-semibold text-white dark:text-[var(--text-inv)] bg-[var(--indigo)] hover:bg-[var(--indigo)]/90 rounded-lg transition-all cursor-pointer shadow-sm hover:shadow text-center leading-none min-w-0 w-full sm:w-auto"
                         >
                           <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 21l-.813-5.096L3 15l5.187-.904L9 9l.813 5.096L15 15l-5.187.904zM18 10.5l-.5 3-.5-3-3-.5 3-.5.5-3 .5 3 3 .5-3 .5zM19 19.5l-.25 1.5-.25-1.5-1.5-.25 1.5-.25.25-1.5.25 1.5 1.5.25-1.5.25z" />
                           </svg>
-                          <span>Generate Quiz</span>
+                          <span className="truncate">Generate Quiz</span>
                         </Link>
                       </div>
 
-                      {/* Circular hover delete button on the bottom right corner (Perfect right padding alignment) */}
                       <button
                         onClick={() => setDocToDelete(doc)}
-                        className="w-8 h-8 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700/60 shadow-sm flex items-center justify-center text-[var(--text-4)] hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/20 opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-200 cursor-pointer flex-shrink-0"
+                        className="w-8 h-8 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700/60 shadow-sm flex items-center justify-center text-[var(--text-4)] hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/20 opacity-100 sm:opacity-0 scale-100 sm:scale-95 sm:group-hover:opacity-100 sm:group-hover:scale-100 transition-all duration-200 cursor-pointer flex-shrink-0 self-end sm:self-auto"
                         title="Delete document"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.85}>
@@ -530,11 +528,11 @@ export default function DocumentsPage() {
       {docToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs">
           <div className="glass-card rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border border-[var(--border)] animate-in fade-in zoom-in-95 duration-200 bg-[var(--surface-2)]">
-            <h3 className="text-base font-bold text-[var(--text-1)]">Delete Document</h3>
-            <p className="text-sm text-[var(--text-3)] mt-2 leading-relaxed">
+            <h3 className="text-base font-semibold text-[var(--text-1)] tracking-tight">Delete Document</h3>
+            <p className="text-sm font-normal text-[var(--text-3)] mt-2 leading-relaxed break-words">
               Are you sure you want to delete <span className="font-semibold text-[var(--text-1)]">&quot;{getDocumentDisplayName(docToDelete)}&quot;</span>? This action cannot be undone.
             </p>
-            <div className="flex items-center justify-end gap-2.5 mt-5">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 mt-5">
               <button
                 onClick={() => setDocToDelete(null)}
                 className="px-4 py-2 text-xs font-semibold rounded-lg hover:bg-black/5 dark:hover:bg-white/5 border border-[var(--border)] transition-colors cursor-pointer text-[var(--text-2)]"
@@ -558,8 +556,8 @@ export default function DocumentsPage() {
 
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed bottom-5 right-5 z-50 flex items-center bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-4 py-3 rounded-lg shadow-lg border border-zinc-800 dark:border-slate-200 animate-in fade-in slide-in-from-bottom-5 duration-200">
-          <span className="text-xs font-semibold">{toast.message}</span>
+        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-5 sm:max-w-sm z-50 flex items-center bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-4 py-3 rounded-lg shadow-lg border border-zinc-800 dark:border-slate-200 animate-in fade-in slide-in-from-bottom-5 duration-200">
+          <span className="text-xs font-semibold break-words">{toast.message}</span>
         </div>
       )}
     </AppShell>

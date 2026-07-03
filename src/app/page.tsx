@@ -269,22 +269,22 @@ export default function WelcomePage() {
 
 
       {/* Top Header */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 sm:px-12 lg:px-20 py-5 border-b border-[var(--border)] bg-[var(--surface)] backdrop-blur-md">
-        <div className="flex items-center">
+      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 sm:px-6 lg:px-20 py-4 sm:py-5 border-b border-[var(--border)] bg-[var(--surface)] backdrop-blur-md min-w-0">
+        <div className="flex items-center min-w-0 flex-shrink">
           <NavbarLogo />
         </div>
 
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-2 sm:gap-5 flex-shrink-0">
           <button
             onClick={() => router.push("/login")}
-            className="text-xs font-semibold px-4 py-2 rounded-lg border border-[var(--border)] transition-all duration-[250ms] cursor-pointer hover:bg-[var(--bg-2)] hover:text-[var(--text-1)] hover:-translate-y-0.5 shadow-sm active:translate-y-0"
+            className="text-xs font-semibold px-3 sm:px-4 py-2 rounded-lg border border-[var(--border)] transition-all duration-[250ms] cursor-pointer hover:bg-[var(--bg-2)] hover:text-[var(--text-1)] hover:-translate-y-0.5 shadow-sm active:translate-y-0 whitespace-nowrap"
           >
             Sign in
           </button>
 
           <button
             onClick={() => router.push("/login")}
-            className="grad-btn px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-all duration-[250ms] hover:-translate-y-0.5 flex items-center gap-1.5 group shadow-sm active:translate-y-0"
+            className="grad-btn px-3 sm:px-4 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-all duration-[250ms] hover:-translate-y-0.5 flex items-center gap-1.5 group shadow-sm active:translate-y-0 whitespace-nowrap"
           >
             Get started
             <span className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
@@ -423,13 +423,13 @@ export default function WelcomePage() {
 
               {/* Card Header */}
               <div
-                className="px-6 py-4 flex items-center justify-between border-b border-[var(--border)] bg-[var(--bg-2)]/30"
+                className="px-4 sm:px-6 py-4 flex items-start sm:items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--bg-2)]/30 min-w-0"
               >
-                <div>
+                <div className="min-w-0 flex-1">
                   <h3 className="text-sm font-semibold text-[var(--text-1)]">
                     AI Quiz Generator
                   </h3>
-                  <p className="text-[10px] text-[var(--text-3)] mt-0.5">
+                  <p className="text-[10px] text-[var(--text-3)] mt-0.5 break-words">
                     Select searchable or scanned PDFs to generate practice tests.
                   </p>
                 </div>
@@ -443,7 +443,7 @@ export default function WelcomePage() {
               </div>
 
               {/* Card Body */}
-              <div className="p-6 space-y-5">
+              <div className="p-4 sm:p-6 space-y-5">
 
                 {/* Drag drop zone */}
                 <div
@@ -803,8 +803,18 @@ export default function WelcomePage() {
             max-width: 1400px !important;
             margin-left: auto !important;
             margin-right: auto !important;
-            padding: 80px 40px !important;
+            padding: 40px 16px !important;
             width: 100%;
+          }
+          @media (min-width: 640px) {
+            .custom-page-footer-container {
+              padding: 60px 24px !important;
+            }
+          }
+          @media (min-width: 1024px) {
+            .custom-page-footer-container {
+              padding: 80px 40px !important;
+            }
           }
         `}} />
         <div className="custom-page-footer-container">

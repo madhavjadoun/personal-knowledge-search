@@ -5,7 +5,7 @@ import AppShell from "@/components/app/AppShell";
 export default function ContactPage() {
   return (
     <AppShell title="Contact" subtitle="Have questions, suggestions, or found a bug?" publicPage={true} noSidebar={true}>
-      <div className="max-w-2xl mx-auto glass-card rounded-2xl p-8 space-y-6 text-sm text-[var(--text-2)] leading-relaxed">
+      <div className="max-w-2xl mx-auto glass-card rounded-2xl p-5 sm:p-8 space-y-6 text-sm text-[var(--text-2)] leading-relaxed min-w-0 overflow-hidden">
         <p className="font-semibold text-base text-[var(--text-1)]">
           I'd love to hear from you.
         </p>
@@ -19,7 +19,7 @@ export default function ContactPage() {
           <div className="space-y-1">
             <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-4)]">Email</h4>
             <p className="text-sm font-bold">
-              <a href="mailto:madhavjadaun9@gmail.com" className="text-[var(--indigo)] hover:underline">
+              <a href="mailto:madhavjadaun9@gmail.com" className="text-[var(--indigo)] hover:underline break-all">
                 madhavjadaun9@gmail.com
               </a>
             </p>

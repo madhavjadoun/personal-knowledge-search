@@ -221,8 +221,7 @@ export default function AppShell({ children, title, subtitle, action, publicPage
       {/* Navigation */}
       <nav className="flex-1 min-h-0 overflow-hidden p-2.5 flex flex-col gap-0.5">
         <p
-          className="text-[11px] font-bold uppercase px-2 pb-1.5 pt-1 text-slate-400 dark:text-zinc-500"
-          style={{ letterSpacing: "0.2em" }}
+          className="text-page-eyebrow px-2 pb-1.5 pt-1"
         >
           Workspace
         </p>
@@ -242,17 +241,17 @@ export default function AppShell({ children, title, subtitle, action, publicPage
       {/* Footer */}
       <footer className="mt-auto border-t border-[var(--border)] px-5 py-4 shrink-0 flex flex-col gap-1.5">
         {/* Footer links */}
-        <div className="relative z-20 flex items-center justify-center gap-2 text-xs font-medium text-slate-500 select-none">
-          <a href="/faq" target="_blank" rel="noopener noreferrer" className="hover:text-slate-900 dark:hover:text-zinc-200 transition-colors relative z-30">FAQ</a>
-          <span className="text-slate-300 dark:text-zinc-700 select-none">•</span>
-          <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-slate-900 dark:hover:text-zinc-200 transition-colors relative z-30">Privacy</a>
-          <span className="text-slate-300 dark:text-zinc-700 select-none">•</span>
-          <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-slate-900 dark:hover:text-zinc-200 transition-colors relative z-30">Terms</a>
-          <span className="text-slate-300 dark:text-zinc-700 select-none">•</span>
-          <a href="/contact" target="_blank" rel="noopener noreferrer" className="hover:text-slate-900 dark:hover:text-zinc-200 transition-colors relative z-30">Contact</a>
+        <div className="relative z-20 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs font-medium text-[var(--text-4)] select-none">
+          <a href="/faq" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-2)] transition-colors relative z-30">FAQ</a>
+          <span className="text-[var(--border-strong)] select-none">•</span>
+          <a href="/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-2)] transition-colors relative z-30">Privacy</a>
+          <span className="text-[var(--border-strong)] select-none">•</span>
+          <a href="/terms" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-2)] transition-colors relative z-30">Terms</a>
+          <span className="text-[var(--border-strong)] select-none">•</span>
+          <a href="/contact" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text-2)] transition-colors relative z-30">Contact</a>
         </div>
         {/* Version */}
-        <div className="text-[11px] font-medium text-slate-500 opacity-60 text-center mt-1">
+        <div className="text-[11px] font-medium text-[var(--text-4)] text-center mt-1">
           Version 1.0.0
         </div>
       </footer>
@@ -312,9 +311,9 @@ export default function AppShell({ children, title, subtitle, action, publicPage
 
         {/* Top navbar */}
         <header
-          className="glass-nav flex-shrink-0 flex items-center justify-between px-5 h-[56px]"
+          className="glass-nav flex-shrink-0 flex items-center justify-between gap-2 px-4 sm:px-5 h-[56px] min-w-0"
         >
-          <div className="flex items-center gap-3.5 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-3.5 min-w-0 flex-1 overflow-hidden">
             {noSidebar ? (
               <Link href="/" className="flex items-center gap-2 text-xs font-semibold text-[var(--text-3)] hover:text-[var(--text-1)] transition-colors">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -341,16 +340,16 @@ export default function AppShell({ children, title, subtitle, action, publicPage
 
             {/* Premium Breadcrumb Header */}
             {!noSidebar && (
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-4)] select-none">
-                <span>Workspace</span>
-                <span className="text-[var(--text-3)] font-normal">/</span>
-                <span className="font-semibold text-[var(--text-1)]">{title}</span>
+              <div className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-[var(--text-4)] select-none min-w-0 truncate">
+                <span className="flex-shrink-0">Workspace</span>
+                <span className="text-[var(--text-4)] font-normal flex-shrink-0">/</span>
+                <span className="font-semibold text-[var(--text-1)] truncate tracking-tight">{title}</span>
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-3.5 flex-shrink-0">
-            {action}
+          <div className="flex items-center gap-2 sm:gap-3.5 flex-shrink-0 min-w-0">
+            <div className="min-w-0 max-w-[45vw] sm:max-w-none">{action}</div>
 
             {/* Theme toggle */}
             <button
@@ -395,25 +394,23 @@ export default function AppShell({ children, title, subtitle, action, publicPage
         </header>
 
         {/* Scrollable page content */}
-        <main className={`flex-1 overflow-y-auto p-5 lg:p-6 ${noSidebar ? "max-w-5xl mx-auto w-full" : ""}`}>
+        <main className={`flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5 lg:p-6 ${noSidebar ? "max-w-5xl mx-auto w-full" : ""}`}>
 
           {/* ── Page Hero Header ── */}
           <div className="mb-8">
-            <p
-              className="text-[12px] font-medium tracking-[0.08em] mb-1 text-[var(--text-4)] uppercase"
-            >
+            <p className="text-page-eyebrow mb-1">
               Workspace
             </p>
             <h2
-              className="text-2xl lg:text-3xl font-bold"
-              style={{ color: "var(--text-1)", letterSpacing: "-0.025em", lineHeight: 1.15 }}
+              className="text-2xl lg:text-3xl font-semibold tracking-tight"
+              style={{ color: "var(--text-1)", letterSpacing: "-0.03em", lineHeight: 1.1 }}
             >
               <BlurText text={title} delay={140} />
             </h2>
             {subtitle && (
               <p
-                className="text-sm lg:text-base mt-2 font-normal leading-[1.6]"
-                style={{ color: "var(--text-3)", letterSpacing: "-0.011em" }}
+                className="text-sm lg:text-base mt-2 font-normal leading-relaxed text-description"
+                style={{ letterSpacing: "-0.011em" }}
               >
                 <BlurText text={subtitle} delay={80} />
               </p>
@@ -438,10 +435,10 @@ export default function AppShell({ children, title, subtitle, action, publicPage
             role="dialog"
             aria-modal="true"
           >
-            <h3 className="text-[17px] font-bold text-[var(--text-1)] tracking-tight">
+            <h3 className="text-[17px] font-semibold text-[var(--text-1)] tracking-tight">
               Sign out?
             </h3>
-            <p className="text-[13px] font-medium text-[var(--text-4)] mt-2 leading-relaxed">
+            <p className="text-[13px] font-normal text-[var(--text-3)] mt-2 leading-relaxed">
               Are you sure you want to sign out of QuizGenerator?
             </p>
             <div className="flex gap-2.5 mt-5">

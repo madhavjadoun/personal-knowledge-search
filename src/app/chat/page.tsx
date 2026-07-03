@@ -460,24 +460,24 @@ export default function QuizPage() {
 
   return (
     <AppShell title="Quiz Generator" subtitle="Generate AI-powered MCQs from your uploaded PDFs.">
-      <div className="max-w-7xl mx-auto px-8 py-8 w-full animate-in fade-in slide-in-from-bottom-3 duration-250 space-y-6">
+      <div className="max-w-7xl mx-auto px-0 sm:px-2 lg:px-8 py-2 sm:py-4 lg:py-8 w-full animate-in fade-in slide-in-from-bottom-3 duration-250 space-y-6 min-w-0">
         
         {/* Setup Card */}
-        <div className="bg-[var(--surface)] border border-[var(--border)] shadow-sm w-full max-w-[1180px] mx-auto hover:-translate-y-[2px] hover:shadow-lg transition-all duration-250" style={{ padding: "28px", borderRadius: "18px" }}>
+        <div className="bg-[var(--surface)] border border-[var(--border)] shadow-sm w-full max-w-[1180px] mx-auto hover:-translate-y-[2px] hover:shadow-lg transition-all duration-250 p-4 sm:p-5 lg:p-7 rounded-[18px]">
           
           {/* Card header row: title + credit badge */}
           <div 
-            className="flex items-center justify-between" 
+            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 min-w-0" 
             style={{ 
               marginBottom: (creditsInfo !== null && (creditsInfo.remaining === 0 || (numQuestions > 0 && numQuestions > creditsInfo.remaining))) ? "10px" : "24px" 
             }}
           >
-            <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--text-4)]">Configure Quiz</h3>
+            <h3 className="text-card-label text-[var(--text-1)] flex-shrink-0">Configure Quiz</h3>
             {creditsInfo !== null && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[var(--text-4)]">Daily Credits</span>
+              <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                <span className="text-xs font-medium text-[var(--text-4)] flex-shrink-0">Daily Credits</span>
                 <span
-                  className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full min-w-0 tabular-nums"
                   style={{
                     background: creditsInfo.remaining === 0
                       ? "rgba(244,63,94,0.1)"
@@ -505,7 +505,7 @@ export default function QuizPage() {
           {creditsInfo !== null && (creditsInfo.remaining === 0 || (numQuestions > 0 && numQuestions > creditsInfo.remaining)) && (
             <div className="flex justify-center animate-in fade-in duration-200" style={{ marginBottom: "16px" }}>
               <div 
-                className="flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold shadow-sm"
+                className="flex items-start sm:items-center gap-2 px-3 sm:px-4 py-2 rounded-xl border text-xs font-bold shadow-sm max-w-full"
                 style={{
                   backgroundColor: "rgba(251, 191, 36, 0.06)",
                   borderColor: "rgba(251, 191, 36, 0.25)",
@@ -515,7 +515,7 @@ export default function QuizPage() {
                 <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
-                <span>
+                <span className="break-words text-center sm:text-left">
                   {creditsInfo.remaining === 0 
                     ? "Only 0 credits left today. Please come back tomorrow." 
                     : `Only ${creditsInfo.remaining} credit${creditsInfo.remaining !== 1 ? "s" : ""} left today.`
@@ -529,7 +529,7 @@ export default function QuizPage() {
             
             {/* Left: Document Dropdown */}
             <div className="col-span-1 md:col-span-2 lg:col-span-1">
-              <label className="font-bold uppercase text-[var(--text-3)] block leading-none" style={{ marginBottom: "12px", fontSize: "11px", letterSpacing: "0.08em" }}>Document</label>
+              <label className="text-card-label block leading-none" style={{ marginBottom: "12px", fontSize: "11px" }}>Document</label>
               <div className="relative group/select">
                 {/* Left Icon: Search icon */}
                 <div className="absolute top-1/2 -translate-y-1/2 pointer-events-none text-[var(--text-4)] flex items-center" style={{ left: "16px" }}>
@@ -549,7 +549,7 @@ export default function QuizPage() {
                     docValidationError 
                       ? "border-red-500 ring-2 ring-red-500/15" 
                       : "border-[var(--border)] focus:border-[var(--indigo)] focus:ring-2 focus:ring-[var(--indigo)]/10"
-                  } bg-[var(--surface)] text-[16px] text-[var(--text-2)] focus:outline-none transition-all duration-250 cursor-pointer hover:border-slate-300 dark:hover:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed`}
+                  } bg-[var(--surface)] text-[16px] font-medium text-[var(--text-1)] focus:outline-none transition-all duration-250 cursor-pointer hover:border-slate-300 dark:hover:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed`}
                   style={{ height: "48px", borderRadius: "12px", paddingLeft: "44px", paddingRight: "44px", appearance: "none", WebkitAppearance: "none", MozAppearance: "none" }}
                 >
                   <option value="">Select a document...</option>
@@ -570,13 +570,13 @@ export default function QuizPage() {
 
             {/* Middle Left: Difficulty Dropdown */}
             <div className="col-span-1 md:col-span-1 lg:col-span-1">
-              <label className="font-bold uppercase text-[var(--text-3)] block leading-none" style={{ marginBottom: "12px", fontSize: "11px", letterSpacing: "0.08em" }}>Difficulty</label>
+              <label className="text-card-label block leading-none" style={{ marginBottom: "12px", fontSize: "11px" }}>Difficulty</label>
               <div className="relative group/select">
                 <select
                   value={difficulty}
                   disabled={generatingQuiz || (creditsInfo !== null && creditsInfo.remaining === 0)}
                   onChange={(e) => setDifficulty(e.target.value)}
-                  className="w-full border border-[var(--border)] focus:border-[var(--indigo)] focus:ring-2 focus:ring-[var(--indigo)]/10 bg-[var(--surface)] text-[16px] text-[var(--text-2)] focus:outline-none transition-all duration-250 cursor-pointer hover:border-slate-300 dark:hover:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full border border-[var(--border)] focus:border-[var(--indigo)] focus:ring-2 focus:ring-[var(--indigo)]/10 bg-[var(--surface)] text-[16px] font-medium text-[var(--text-1)] focus:outline-none transition-all duration-250 cursor-pointer hover:border-slate-300 dark:hover:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ height: "48px", borderRadius: "12px", paddingLeft: "16px", paddingRight: "44px", appearance: "none", WebkitAppearance: "none", MozAppearance: "none" }}
                 >
                   <option value="Easy">Easy</option>
@@ -594,7 +594,7 @@ export default function QuizPage() {
 
             {/* Middle Right: Questions Input */}
             <div className="col-span-1 md:col-span-1 lg:col-span-1">
-              <label className="font-bold uppercase text-[var(--text-3)] block leading-none" style={{ marginBottom: "12px", fontSize: "11px", letterSpacing: "0.08em" }}>No. of MCQs</label>
+              <label className="text-card-label block leading-none" style={{ marginBottom: "12px", fontSize: "11px" }}>No. of MCQs</label>
               <input
                 type="number"
                 min={1}
@@ -628,7 +628,7 @@ export default function QuizPage() {
                     : creditsInfo && numQuestions > creditsInfo.remaining && numQuestions > 0
                     ? "border-amber-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/10"
                     : "border-[var(--border)] focus:border-[var(--indigo)] focus:ring-2 focus:ring-[var(--indigo)]/10"
-                } bg-[var(--surface)] px-4 text-base font-bold text-[var(--text-1)] focus:outline-none transition-all duration-250 hover:border-slate-300 dark:hover:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                } bg-[var(--surface)] px-4 text-base font-semibold text-[var(--text-1)] tabular-nums focus:outline-none transition-all duration-250 hover:border-slate-300 dark:hover:border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                 style={{ height: "48px", borderRadius: "12px" }}
               />
             </div>
@@ -734,11 +734,11 @@ export default function QuizPage() {
         {/* 1. Loading/Generating State */}
         {generatingQuiz && (
           <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[18px] p-7 shadow-sm w-full max-w-[1180px] mx-auto min-h-[180px] flex flex-col items-center justify-center text-center animate-in fade-in duration-250 hover:-translate-y-[2px] hover:shadow-lg transition-all duration-250">
-            <h3 className="text-sm font-bold text-[var(--text-1)] mb-4">Generating Quiz...</h3>
+            <h3 className="text-sm font-semibold text-[var(--text-1)] tracking-tight mb-4">Generating Quiz...</h3>
             <div className="w-full max-w-[200px] h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden mb-4 relative">
               <div className="absolute top-0 bottom-0 left-0 w-1/3 bg-[var(--indigo)] rounded-full animate-progress-loop"></div>
             </div>
-            <p className="text-xs text-[var(--text-3)] font-semibold status-fade-text"></p>
+            <p className="text-xs font-normal text-[var(--text-3)] status-fade-text"></p>
           </div>
         )}
 
@@ -749,29 +749,29 @@ export default function QuizPage() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="text-emerald-500 font-bold text-lg">✓</span>
-                  <h3 className="text-base font-bold text-[var(--text-1)]">Quiz Generated</h3>
+                  <h3 className="text-base font-semibold text-[var(--text-1)] tracking-tight">Quiz Generated</h3>
                 </div>
-                <p className="text-xs text-[var(--text-4)]">
+                <p className="text-xs font-normal text-[var(--text-4)] leading-relaxed">
                   Practice exam questions compiled successfully.
                 </p>
               </div>
               
               <div className="flex flex-wrap items-center gap-4">
                 <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-4)]">Questions</span>
-                  <span className="px-3 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-xs font-semibold text-[var(--text-2)]">
+                  <span className="text-card-label text-[10px]">Questions</span>
+                  <span className="px-3 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-xs font-semibold text-[var(--text-1)] tabular-nums">
                     {questions.length}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-4)]">Time</span>
-                  <span className="px-3 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-xs font-semibold text-[var(--text-2)]">
+                  <span className="text-card-label text-[10px]">Time</span>
+                  <span className="px-3 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-xs font-semibold text-[var(--text-1)] tabular-nums">
                     {(questions.length * 0.15 + 1.2).toFixed(1)}s
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-4)]">Difficulty</span>
-                  <span className="px-3 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-xs font-semibold text-[var(--text-2)]">
+                  <span className="text-card-label text-[10px]">Difficulty</span>
+                  <span className="px-3 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-xs font-semibold text-[var(--text-1)]">
                     {difficulty}
                   </span>
                 </div>
@@ -783,7 +783,7 @@ export default function QuizPage() {
                     if (!startTime) setStartTime(Date.now());
                     document.getElementById("q-0")?.scrollIntoView({ behavior: "smooth" });
                   }}
-                  className="px-5 h-10 rounded-lg bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold hover:-translate-y-[2px] active:translate-y-0 transition-all duration-200 cursor-pointer border border-transparent shadow-sm flex items-center justify-center gap-1.5"
+                  className="w-full sm:w-auto px-5 h-10 rounded-lg bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 text-xs font-bold hover:-translate-y-[2px] active:translate-y-0 transition-all duration-200 cursor-pointer border border-transparent shadow-sm flex items-center justify-center gap-1.5"
                 >
                   <span>Start Quiz</span>
                   <span>→</span>
@@ -797,11 +797,11 @@ export default function QuizPage() {
         {!selectedDocId && !generatingQuiz && questions.length === 0 && (
           <div className="w-full max-w-[560px] mx-auto border border-dashed border-slate-200 dark:border-zinc-700/60 bg-slate-50/50 dark:bg-zinc-900/10 rounded-[18px] py-5 px-6 flex flex-col items-center justify-center text-center animate-in fade-in duration-250 h-[180px] hover:-translate-y-[2px] hover:shadow-lg transition-all duration-250">
             <span className="text-2xl mb-2">📄</span>
-            <h3 className="text-sm font-semibold text-[var(--text-1)]">No document selected</h3>
-            <p className="text-xs text-[var(--text-3)] mt-0.5">
+            <h3 className="text-sm font-semibold text-[var(--text-1)] tracking-tight">No document selected</h3>
+            <p className="text-xs font-normal text-[var(--text-3)] mt-0.5 leading-relaxed">
               Select a document above to continue.
             </p>
-            <div className="text-[10px] font-bold text-[var(--text-4)] uppercase tracking-wider mt-3.5">
+            <div className="text-card-label text-[10px] mt-3.5">
               Supported: PDF • OCR • Scanned PDFs
             </div>
           </div>
@@ -810,37 +810,37 @@ export default function QuizPage() {
         {/* 4. Selected Document Detail Card */}
         {selectedDoc && !generatingQuiz && questions.length === 0 && (
           <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[18px] p-6 shadow-sm w-full max-w-[1180px] mx-auto animate-in fade-in duration-250 hover:-translate-y-[2px] hover:shadow-lg transition-all duration-250">
-            <h3 className="text-xs font-bold text-[var(--text-4)] uppercase tracking-wider mb-5">Selected Document</h3>
+            <h3 className="text-card-label mb-5">Selected Document</h3>
             
-            <div className="flex items-center gap-2 mb-6">
-              <span className="text-lg">📄</span>
-              <span className="text-base font-bold text-[var(--text-1)] truncate max-w-[400px]">
+            <div className="flex items-center gap-2 mb-6 min-w-0">
+              <span className="text-lg flex-shrink-0">📄</span>
+              <span className="text-base font-semibold text-[var(--text-1)] truncate min-w-0 flex-1 tracking-tight">
                 {selectedDocName}
               </span>
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs text-[var(--text-4)] font-medium">Size</span>
-                <span className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-xs font-semibold text-[var(--text-2)] w-fit">
+                <span className="text-xs font-medium text-[var(--text-4)]">Size</span>
+                <span className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-xs font-semibold text-[var(--text-1)] tabular-nums w-fit">
                   {selectedDoc.file_size ? formatBytes(selectedDoc.file_size) : "N/A"}
                 </span>
               </div>
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs text-[var(--text-4)] font-medium">Chunks</span>
-                <span className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-xs font-semibold text-[var(--text-2)] w-fit">
+                <span className="text-xs font-medium text-[var(--text-4)]">Chunks</span>
+                <span className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-xs font-semibold text-[var(--text-1)] tabular-nums w-fit">
                   {selectedDoc.file_size ? Math.max(1, Math.round(selectedDoc.file_size / 800)) : "N/A"}
                 </span>
               </div>
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs text-[var(--text-4)] font-medium">Status</span>
+                <span className="text-xs font-medium text-[var(--text-4)]">Status</span>
                 <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-semibold border border-emerald-500/20 w-fit">
                   Synced
                 </span>
               </div>
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs text-[var(--text-4)] font-medium">Uploaded</span>
-                <span className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-xs font-semibold text-[var(--text-2)] w-fit">
+                <span className="text-xs font-medium text-[var(--text-4)]">Uploaded</span>
+                <span className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-xs font-semibold text-[var(--text-1)] w-fit">
                   {formatUploadedDate(selectedDoc.created_at)}
                 </span>
               </div>
@@ -851,13 +851,13 @@ export default function QuizPage() {
         {/* Quiz Questions */}
         {questions.length > 0 && !generatingQuiz && (
           <div className="space-y-6 max-w-[1180px] mx-auto pt-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-[var(--text-1)]">Practice Quiz</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 min-w-0">
+              <h2 className="text-lg font-semibold text-[var(--text-1)] tracking-tight">Practice Quiz</h2>
               {submitted && (
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 min-w-0">
                   <button
                     onClick={handleDownloadReport}
-                    className="px-4 py-1.5 rounded-lg border border-[var(--border)] text-xs font-semibold hover:bg-[var(--bg-2)] transition-colors cursor-pointer flex items-center gap-1.5"
+                    className="px-4 py-1.5 rounded-lg border border-[var(--border)] text-xs font-semibold hover:bg-[var(--bg-2)] transition-colors cursor-pointer flex items-center justify-center gap-1.5 w-full sm:w-auto"
                     style={{ color: "var(--text-1)" }}
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -865,7 +865,7 @@ export default function QuizPage() {
                     </svg>
                     <span>Download Report</span>
                   </button>
-                  <div className={`px-4 py-1.5 rounded-full border text-sm font-bold flex items-center gap-2 ${
+                  <div className={`px-4 py-1.5 rounded-full border text-sm font-bold flex items-center justify-center gap-2 w-full sm:w-auto ${
                     score >= 7 
                       ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
                       : score >= 5 
@@ -884,13 +884,13 @@ export default function QuizPage() {
                 const isCorrectOption = (opt: string) => q.correctAnswer === opt;
                 
                 return (
-                  <div key={idx} id={`q-${idx}`} className="bg-[var(--surface)] rounded-[18px] p-6 space-y-4 border border-[var(--border)] hover:-translate-y-[2px] hover:shadow-lg transition-all duration-250 animate-in fade-in slide-in-from-bottom-3">
-                    <div className="flex gap-2 items-start">
-                      <span className="font-semibold text-sm text-[var(--indigo)] bg-[var(--indigo)]/10 px-2 py-0.5 rounded-md">Q{idx + 1}</span>
-                      <h3 className="text-[15px] font-semibold text-[var(--text-2)] pt-0.5">{q.question}</h3>
+                  <div key={idx} id={`q-${idx}`} className="bg-[var(--surface)] rounded-[18px] p-4 sm:p-6 space-y-4 border border-[var(--border)] hover:-translate-y-[2px] hover:shadow-lg transition-all duration-250 animate-in fade-in slide-in-from-bottom-3 min-w-0 overflow-hidden">
+                    <div className="flex gap-2 items-start min-w-0">
+                      <span className="font-semibold text-sm text-[var(--indigo)] bg-[var(--indigo)]/10 px-2 py-0.5 rounded-md flex-shrink-0">Q{idx + 1}</span>
+                      <h3 className="text-[15px] font-medium text-[var(--text-1)] pt-0.5 min-w-0 break-words leading-relaxed">{q.question}</h3>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-2.5 pl-9">
+                    <div className="grid grid-cols-1 gap-2.5 pl-0 sm:pl-9">
                       {q.options.map((opt, oIdx) => {
                         let optStyle = "border-[var(--border)] bg-[var(--surface)] text-[var(--text-3)] hover:border-slate-300 dark:hover:border-zinc-700";
                         
@@ -911,11 +911,11 @@ export default function QuizPage() {
                             key={opt}
                             disabled={submitted}
                             onClick={() => handleSelectOption(idx, opt)}
-                            className={`w-full text-left px-4 py-3 rounded-lg border text-sm transition-all flex items-center justify-between ${optStyle} ${
+                            className={`w-full text-left px-4 py-3 rounded-lg border text-sm transition-all flex items-center justify-between gap-2 min-w-0 ${optStyle} ${
                               !submitted ? "cursor-pointer active:scale-[0.995]" : "cursor-default"
                             }`}
                           >
-                            <span>
+                            <span className="min-w-0 break-words">
                               <strong className="mr-1.5 text-[var(--text-2)]">{String.fromCharCode(65 + oIdx)}.</strong>
                               {opt}
                             </span>
@@ -936,7 +936,7 @@ export default function QuizPage() {
 
                     {/* Explanations shown for wrong answers after submission */}
                     {submitted && !isSelected(q.correctAnswer) && (
-                      <div className="pl-9 mt-2.5">
+                      <div className="pl-0 sm:pl-9 mt-2.5">
                         <div className="p-3.5 rounded-lg bg-indigo-500/5 border border-indigo-500/15 text-[13px] leading-relaxed text-[var(--text-3)]">
                           <p className="font-semibold text-[var(--indigo)] mb-1">Explanation from PDF:</p>
                           <p className="italic">&ldquo;{q.explanation}&rdquo;</p>
@@ -950,11 +950,11 @@ export default function QuizPage() {
 
             {/* Quiz submission actions */}
             {!submitted && (
-              <div className="flex justify-end pt-4">
+              <div className="flex justify-stretch sm:justify-end pt-4">
                 <button
                   onClick={handleSubmitQuiz}
                   disabled={Object.keys(userAnswers).length < questions.length}
-                  className="px-6 h-11.5 rounded-lg bg-[var(--indigo)] text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity cursor-pointer shadow-sm hover:shadow-md"
+                  className="w-full sm:w-auto px-6 h-11.5 rounded-lg bg-[var(--indigo)] text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity cursor-pointer shadow-sm hover:shadow-md"
                 >
                   Submit Quiz
                 </button>
@@ -978,15 +978,15 @@ export default function QuizPage() {
             </div>
             
             <div className="space-y-2">
-              <h3 className="text-lg font-extrabold text-[var(--text-1)]">
+              <h3 className="text-lg font-semibold text-[var(--text-1)] tracking-tight">
                 Daily limit reached
               </h3>
               
-              <p className="text-sm font-semibold text-[var(--text-2)]">
+              <p className="text-sm font-medium text-[var(--text-2)]">
                 You&apos;ve used all {creditsInfo?.limit ?? 30} daily MCQs.
               </p>
               
-              <p className="text-xs text-[var(--text-4)] font-medium">
+              <p className="text-xs font-normal text-[var(--text-4)] leading-relaxed">
                 Your limit resets automatically
                 {creditsInfo?.resetAt
                   ? ` at ${new Date(creditsInfo.resetAt).toLocaleTimeString([], {
@@ -1009,8 +1009,8 @@ export default function QuizPage() {
 
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed bottom-5 right-5 z-50 flex items-center bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-4 py-3 rounded-lg shadow-lg border border-zinc-800 dark:border-slate-200 animate-in fade-in slide-in-from-bottom-5 duration-200">
-          <span className="text-xs font-semibold">{toast.message}</span>
+        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-5 sm:max-w-sm z-50 flex items-center bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-4 py-3 rounded-lg shadow-lg border border-zinc-800 dark:border-slate-200 animate-in fade-in slide-in-from-bottom-5 duration-200">
+          <span className="text-xs font-semibold break-words">{toast.message}</span>
         </div>
       )}
     </AppShell>

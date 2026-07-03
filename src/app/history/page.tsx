@@ -306,35 +306,35 @@ export default function HistoryPage() {
 
         {/* Top Summary Cards */}
         {!loading && quizzes.length > 0 && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-5 flex items-center justify-between hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 cursor-pointer">
-              <div className="space-y-1">
-                <p className="text-[12px] font-medium text-[var(--text-3)]">Completed</p>
-                <p className="text-2xl font-bold text-[var(--text-1)]">{completedCount}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-4 sm:p-5 flex items-center justify-between hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 cursor-pointer min-w-0">
+              <div className="space-y-1 min-w-0">
+                <p className="text-card-label">Completed</p>
+                <p className="text-xl sm:text-2xl text-stat-value">{completedCount}</p>
               </div>
               <CheckCircle2 className="w-5 h-5 text-[var(--text-3)] opacity-80" strokeWidth={1.5} />
             </div>
 
-            <div className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-5 flex items-center justify-between hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 cursor-pointer">
-              <div className="space-y-1">
-                <p className="text-[12px] font-medium text-[var(--text-3)]">Total Quizzes</p>
-                <p className="text-2xl font-bold text-[var(--text-1)]">{quizzes.length}</p>
+            <div className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-4 sm:p-5 flex items-center justify-between hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 cursor-pointer min-w-0">
+              <div className="space-y-1 min-w-0">
+                <p className="text-card-label">Total Quizzes</p>
+                <p className="text-xl sm:text-2xl text-stat-value">{quizzes.length}</p>
               </div>
               <BookOpen className="w-5 h-5 text-[var(--text-3)] opacity-80" strokeWidth={1.5} />
             </div>
 
-            <div className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-5 flex items-center justify-between hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 cursor-pointer">
-              <div className="space-y-1">
-                <p className="text-[12px] font-medium text-[var(--text-3)]">Documents Practiced</p>
-                <p className="text-2xl font-bold text-[var(--text-1)]">{new Set(quizzes.map(q => q.document_id)).size}</p>
+            <div className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-4 sm:p-5 flex items-center justify-between hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 cursor-pointer min-w-0">
+              <div className="space-y-1 min-w-0">
+                <p className="text-card-label leading-snug">Documents Practiced</p>
+                <p className="text-xl sm:text-2xl text-stat-value">{new Set(quizzes.map(q => q.document_id)).size}</p>
               </div>
               <FileText className="w-5 h-5 text-[var(--text-3)] opacity-80" strokeWidth={1.5} />
             </div>
 
-            <div className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-5 flex items-center justify-between hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 cursor-pointer">
-              <div className="space-y-1">
-                <p className="text-[12px] font-medium text-[var(--text-3)]">Downloads</p>
-                <p className="text-2xl font-bold text-[var(--text-1)]">{downloadedCount}</p>
+            <div className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-4 sm:p-5 flex items-center justify-between hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 cursor-pointer min-w-0">
+              <div className="space-y-1 min-w-0">
+                <p className="text-card-label">Downloads</p>
+                <p className="text-xl sm:text-2xl text-stat-value">{downloadedCount}</p>
               </div>
               <DownloadIcon className="w-5 h-5 text-[var(--text-3)] opacity-80" strokeWidth={1.5} />
             </div>
@@ -343,16 +343,16 @@ export default function HistoryPage() {
 
         {/* Header Actions row */}
         {!loading && quizzes.length > 0 && (
-          <div className="flex justify-between items-center bg-[var(--bg-2)]/60 border border-[var(--border)] rounded-xl p-4">
-            <div className="space-y-0.5">
-              <h3 className="text-sm font-bold text-[var(--text-1)]">Recent Attempts</h3>
-              <p className="text-[11px] text-[var(--text-3)] font-medium">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 bg-[var(--bg-2)]/60 border border-[var(--border)] rounded-xl p-4">
+            <div className="space-y-0.5 min-w-0">
+              <h3 className="text-sm font-semibold text-[var(--text-1)] tracking-tight">Recent Attempts</h3>
+              <p className="text-[11px] text-[var(--text-4)] font-normal">
                 {completedCount === 1 ? "1 Completed Quiz" : `${completedCount} Completed Quizzes`}
               </p>
             </div>
             <button
               onClick={() => setClearAllConfirm(true)}
-              className="px-3.5 py-1.5 border border-[var(--border)] hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 h-9"
+              className="px-3.5 py-1.5 border border-[var(--border)] hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 h-9 w-full sm:w-auto flex-shrink-0"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -365,15 +365,15 @@ export default function HistoryPage() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3">
             <OrbitLoader size={44} />
-            <p className="text-sm font-semibold text-zinc-400 dark:text-zinc-500">
+            <p className="text-sm font-medium text-[var(--text-4)]">
               Loading your quiz history...
             </p>
           </div>
         ) : quizzes.length === 0 ? (
           <div className="w-full max-w-[560px] mx-auto border border-dashed border-[var(--border)] bg-[var(--bg-2)]/30 rounded-[12px] py-12 px-6 flex flex-col items-center justify-center text-center animate-in fade-in duration-250 min-h-[250px]">
             <span className="text-4xl mb-4">🎉</span>
-            <h3 className="text-base font-bold text-[var(--text-1)]">No quizzes yet</h3>
-            <p className="text-xs text-[var(--text-3)] mt-1.5 max-w-[320px] leading-relaxed font-medium">
+            <h3 className="text-base font-semibold text-[var(--text-1)] tracking-tight">No quizzes yet</h3>
+            <p className="text-xs font-normal text-[var(--text-3)] mt-1.5 max-w-[320px] leading-relaxed">
               Generate your first practice quiz to see your history and download performance reports here.
             </p>
             <Link
@@ -398,58 +398,58 @@ export default function HistoryPage() {
               return (
                 <div
                   key={quiz.id}
-                  className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-4 flex flex-col justify-between min-h-[190px] hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300"
+                  className="border border-[var(--border)] bg-white dark:bg-[#151d2f] rounded-[12px] p-4 flex flex-col justify-between min-h-[190px] hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 min-w-0 overflow-hidden"
                 >
-                  <div className="space-y-3">
+                  <div className="space-y-3 min-w-0">
                     {/* Header Row */}
-                    <div className="flex justify-between items-start gap-3">
-                      <div className="space-y-1">
+                    <div className="flex justify-between items-start gap-3 min-w-0">
+                      <div className="space-y-1 min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <h4 className="text-sm font-bold text-[var(--text-1)]">
+                          <h4 className="text-sm font-semibold text-[var(--text-1)] tracking-tight">
                             Practice Quiz
                           </h4>
-                          <span className="text-[9px] font-mono bg-[var(--bg-2)] text-[var(--text-3)] px-1.5 py-0.5 rounded border border-[var(--border)] font-medium">
+                          <span className="text-[9px] font-mono bg-[var(--bg-2)] text-[var(--text-4)] px-1.5 py-0.5 rounded border border-[var(--border)] font-medium flex-shrink-0">
                             #{quiz.id.slice(0, 5).toUpperCase()}
                           </span>
                         </div>
-                        <div className="flex flex-col gap-0.5">
-                          <p className="text-[10px] font-semibold text-[var(--text-2)] flex items-center gap-1">
-                            <span className="text-xs">📄</span>
-                            <span className="truncate max-w-[150px]">{docName}</span>
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <p className="text-[10px] font-medium text-[var(--text-3)] flex items-center gap-1 min-w-0">
+                            <span className="text-xs flex-shrink-0">📄</span>
+                            <span className="truncate min-w-0">{docName}</span>
                           </p>
-                          <p className="text-[9px] font-medium text-[var(--text-4)]">
+                          <p className="text-[9px] font-normal text-[var(--text-4)]">
                             Created {formattedDate}
                           </p>
                         </div>
                       </div>
 
                       {/* Completed badge */}
-                      <span className="px-1.5 py-0.5 rounded border border-[var(--border)] text-[9px] font-semibold text-[var(--text-3)] bg-transparent select-none">
+                      <span className="px-1.5 py-0.5 rounded border border-[var(--border)] text-[9px] font-medium text-[var(--text-4)] bg-transparent select-none">
                         {attempt.completed ? "Completed" : "Generated"}
                       </span>
                     </div>
 
                     {/* Stats Rows */}
                     <div className="border-t border-[var(--border)] pt-3 space-y-1.5">
-                      <div className="flex justify-between text-[11px] font-medium">
-                        <span className="text-[var(--text-3)]">Questions</span>
-                        <span className="text-[var(--text-1)]">{quiz.total_questions}</span>
+                      <div className="flex justify-between text-[11px]">
+                        <span className="font-medium text-[var(--text-3)]">Questions</span>
+                        <span className="font-semibold text-[var(--text-1)] tabular-nums">{quiz.total_questions}</span>
                       </div>
-                      <div className="flex justify-between text-[11px] font-medium">
-                        <span className="text-[var(--text-3)]">Accuracy</span>
-                        <span className="text-[var(--text-1)]">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="font-medium text-[var(--text-3)]">Accuracy</span>
+                        <span className="font-semibold text-[var(--text-1)] tabular-nums">
                           {attempt.completed ? `${attempt.accuracy}%` : "--:--"}
                         </span>
                       </div>
-                      <div className="flex justify-between text-[11px] font-medium">
-                        <span className="text-[var(--text-3)]">Duration</span>
-                        <span className="text-[var(--text-1)]">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="font-medium text-[var(--text-3)]">Duration</span>
+                        <span className="font-semibold text-[var(--text-1)] tabular-nums">
                           {attempt.completed ? formatTime(attempt.time_taken) : "--:--"}
                         </span>
                       </div>
-                      <div className="flex justify-between text-[11px] font-medium">
-                        <span className="text-[var(--text-3)]">Difficulty</span>
-                        <span className="text-[var(--text-1)] capitalize">{attempt.difficulty}</span>
+                      <div className="flex justify-between text-[11px]">
+                        <span className="font-medium text-[var(--text-3)]">Difficulty</span>
+                        <span className="font-semibold text-[var(--text-1)] capitalize">{attempt.difficulty}</span>
                       </div>
                     </div>
 
@@ -465,30 +465,33 @@ export default function HistoryPage() {
                   </div>
 
                   {/* Actions Footer */}
-                  <div className="flex items-center gap-1.5 mt-4 pt-3 border-t border-[var(--border)]">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-1.5 mt-4 pt-3 border-t border-[var(--border)] min-w-0">
+                    <div className="flex gap-1.5 min-w-0 flex-1">
                     {attempt.completed ? (
                       <button
                         onClick={() => router.push(`/chat?quizId=${quiz.id}&review=true`)}
-                        className="flex-1 py-1.5 text-center border border-[var(--border)] hover:bg-[var(--bg-2)] text-[11px] font-bold text-[var(--text-2)] rounded-lg transition-all cursor-pointer h-8 flex items-center justify-center"
+                        className="flex-1 min-w-0 py-1.5 text-center border border-[var(--border)] hover:bg-[var(--bg-2)] text-[11px] font-bold text-[var(--text-2)] rounded-lg transition-all cursor-pointer h-8 flex items-center justify-center"
                       >
                         Review
                       </button>
                     ) : (
-                      <div className="flex-1 text-center py-1.5 text-[11px] font-medium text-[var(--text-3)] italic h-8 flex items-center justify-center border border-dashed border-[var(--border)] rounded-lg">
+                      <div className="flex-1 min-w-0 text-center py-1.5 text-[11px] font-medium text-[var(--text-3)] italic h-8 flex items-center justify-center border border-dashed border-[var(--border)] rounded-lg px-1">
                         Review unavailable
                       </div>
                     )}
                     
                     <button
                       onClick={() => router.push(`/chat?docId=${quiz.document_id}`)}
-                      className="flex-1 py-1.5 text-center bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 hover:opacity-90 text-[11px] font-bold rounded-lg transition-all cursor-pointer h-8 flex items-center justify-center gap-1 btn-premium-shine"
+                      className="flex-1 min-w-0 py-1.5 text-center bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 hover:opacity-90 text-[11px] font-bold rounded-lg transition-all cursor-pointer h-8 flex items-center justify-center gap-1 btn-premium-shine"
                     >
                       <svg className="w-3 h-3 flex-shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 21l-.813-5.096L3 15l5.187-.904L9 9l.813 5.096L15 15l-5.187.904zM18 10.5l-.5 3-.5-3-3-.5 3-.5.5-3 .5 3 3 .5-3 .5zM19 19.5l-.25 1.5-.25-1.5-1.5-.25 1.5-.25.25-1.5.25 1.5 1.5.25-1.5.25z" />
                       </svg>
-                      <span>Retake</span>
+                      <span className="truncate">Retake</span>
                     </button>
+                    </div>
                     
+                    <div className="flex gap-1.5 justify-end flex-shrink-0">
                     {/* PDF Report Download */}
                     <button
                       onClick={() => {
@@ -519,6 +522,7 @@ export default function HistoryPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
                     </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -604,18 +608,18 @@ export default function HistoryPage() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 animate-in fade-in duration-200">
           <div className="bg-white dark:bg-[#121826] border border-[var(--border)] rounded-xl max-w-[400px] w-full p-6 shadow-xl space-y-5 mx-4 animate-in zoom-in-95 duration-200">
             <div className="space-y-1.5">
-              <h3 className="text-base font-bold text-[var(--text-1)]">Download Quiz Report</h3>
-              <p className="text-xs text-[var(--text-3)] leading-relaxed font-medium">
+              <h3 className="text-base font-semibold text-[var(--text-1)] tracking-tight">Download Quiz Report</h3>
+              <p className="text-xs font-normal text-[var(--text-3)] leading-relaxed">
                 Export a clean PDF for revision or sharing.
               </p>
             </div>
 
-            <div className="flex items-center justify-between p-3.5 bg-[var(--bg-2)]/60 border border-[var(--border)] rounded-lg hover:border-[var(--text-4)]/30 transition-colors duration-200">
-              <div className="space-y-0.5">
-                <p className="text-xs font-bold text-[var(--text-2)]">Include Answers & Explanations</p>
-                <p className="text-[10px] text-[var(--text-4)]">Include correct answers and detailed AI explanations.</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-[var(--bg-2)]/60 border border-[var(--border)] rounded-lg hover:border-[var(--text-4)]/30 transition-colors duration-200">
+              <div className="space-y-0.5 min-w-0 flex-1">
+                <p className="text-xs font-semibold text-[var(--text-1)]">Include Answers & Explanations</p>
+                <p className="text-[10px] font-normal text-[var(--text-4)] break-words leading-relaxed">Include correct answers and detailed AI explanations.</p>
               </div>
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 flex-shrink-0 self-end sm:self-auto">
                 <span 
                   className={`text-[10px] font-black tracking-wider transition-colors duration-200 ${
                     includeAnswers 
@@ -648,10 +652,10 @@ export default function HistoryPage() {
 
             {/* List of included items */}
             <div className="space-y-2 border-t border-[var(--border)] pt-4">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-4)]">
+              <p className="text-card-label text-[10px]">
                 Your PDF will include
               </p>
-              <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--text-2)] font-semibold">
+              <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[var(--text-2)] font-medium">
                 <li className="flex items-center gap-1.5">
                   <span style={{ color: 'var(--indigo-accent)' }}>✓</span> Questions
                 </li>
@@ -693,7 +697,7 @@ export default function HistoryPage() {
               </button>
             </div>
 
-            <div className="text-[9px] text-[var(--text-4)] text-center pt-1 font-medium select-none">
+            <div className="text-[9px] font-normal text-[var(--text-4)] text-center pt-1 select-none">
               Generated locally • Secure • No data shared.
             </div>
           </div>
@@ -702,8 +706,8 @@ export default function HistoryPage() {
 
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed bottom-5 right-5 z-50 flex items-center bg-[#151d2f] text-[#f8fafc] px-4 py-3 rounded-lg shadow-lg border border-[#24324a] animate-in fade-in slide-in-from-bottom-5 duration-200">
-          <span className="text-xs font-semibold">{toast.message}</span>
+        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-5 sm:max-w-sm z-50 flex items-center bg-[#151d2f] text-[#f8fafc] px-4 py-3 rounded-lg shadow-lg border border-[#24324a] animate-in fade-in slide-in-from-bottom-5 duration-200">
+          <span className="text-xs font-semibold break-words">{toast.message}</span>
         </div>
       )}
     </AppShell>

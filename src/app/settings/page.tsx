@@ -41,13 +41,13 @@ function SettingSection({
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[18px] overflow-hidden">
       {/* Section Header */}
-      <div className="px-6 py-4 border-b border-[var(--border)] flex items-center gap-3 bg-[var(--bg-2)]/20">
-        <div className="w-8 h-8 rounded-lg bg-[var(--bg-2)] flex items-center justify-center text-[var(--text-2)]">
+      <div className="px-4 sm:px-6 py-4 border-b border-[var(--border)] flex items-center gap-3 bg-[var(--bg-2)]/20 min-w-0">
+        <div className="w-8 h-8 rounded-lg bg-[var(--bg-2)] flex items-center justify-center text-[var(--text-2)] flex-shrink-0">
           {icon}
         </div>
-        <div>
-          <p className="text-base font-extrabold text-[var(--text-1)]">{title}</p>
-          {description && <p className="text-xs font-semibold text-[var(--text-3)] mt-0.5">{description}</p>}
+        <div className="min-w-0">
+          <p className="text-base font-semibold text-[var(--text-1)] tracking-tight">{title}</p>
+          {description && <p className="text-xs font-normal text-[var(--text-3)] mt-0.5 break-words leading-relaxed">{description}</p>}
         </div>
       </div>
       {/* Section Content */}
@@ -67,14 +67,14 @@ function SettingRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="px-6 py-5 flex items-center justify-between gap-6">
+    <div className="px-4 sm:px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-6">
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-extrabold text-[var(--text-1)]">{label}</p>
+        <p className="text-sm font-semibold text-[var(--text-1)] tracking-tight">{label}</p>
         {description && (
-          <p className="text-[12px] font-semibold text-[var(--text-3)] mt-0.5 leading-relaxed">{description}</p>
+          <p className="text-[12px] font-normal text-[var(--text-3)] mt-0.5 leading-relaxed break-words">{description}</p>
         )}
       </div>
-      <div className="flex-shrink-0">{children}</div>
+      <div className="flex-shrink-0 w-full sm:w-auto">{children}</div>
     </div>
   );
 }
@@ -94,14 +94,14 @@ function DangerRow({
   onClick: () => void;
 }) {
   return (
-    <div className="px-6 py-5 flex items-center justify-between gap-6">
+    <div className="px-4 sm:px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-6">
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-extrabold text-[var(--text-1)]">{label}</p>
-        <p className="text-[12px] font-semibold text-[var(--text-3)] mt-0.5 leading-relaxed">{description}</p>
+        <p className="text-sm font-semibold text-[var(--text-1)] tracking-tight">{label}</p>
+        <p className="text-[12px] font-normal text-[var(--text-3)] mt-0.5 leading-relaxed break-words">{description}</p>
       </div>
       <button
         onClick={onClick}
-        className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+        className={`flex-shrink-0 w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
           buttonStyle === "severe"
             ? "bg-red-600 text-white hover:bg-red-700 shadow-sm hover:shadow"
             : "bg-red-500/10 text-red-500 hover:bg-red-500/15 border border-red-500/20"
@@ -258,7 +258,7 @@ export default function SettingsPage() {
         <div className="flex items-center justify-center py-32">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-[var(--indigo)] border-t-transparent rounded-full animate-spin" />
-            <p className="text-xs font-semibold text-[var(--text-4)]">Loading preferences…</p>
+            <p className="text-xs font-medium text-[var(--text-4)]">Loading preferences…</p>
           </div>
         </div>
       </AppShell>
@@ -270,21 +270,21 @@ export default function SettingsPage() {
       <div className="max-w-3xl mx-auto space-y-5 pb-12 animate-in fade-in duration-300">
 
         {/* ── Account Info Banner ── */}
-        <div className="bg-gradient-to-r from-[var(--indigo)]/10 via-[var(--bg-2)] to-[var(--surface)] border border-[var(--border)] rounded-[18px] px-6 py-5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-11 h-11 rounded-full bg-[var(--indigo)]/15 flex items-center justify-center">
+        <div className="bg-gradient-to-r from-[var(--indigo)]/10 via-[var(--bg-2)] to-[var(--surface)] border border-[var(--border)] rounded-[18px] px-4 sm:px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0 flex-1">
+            <div className="w-11 h-11 rounded-full bg-[var(--indigo)]/15 flex items-center justify-center flex-shrink-0">
               <svg className="w-5 h-5 text-[var(--indigo)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
               </svg>
             </div>
-            <div>
-              <p className="text-base font-extrabold text-[var(--text-1)]">Signed In</p>
-              <p className="text-sm font-semibold text-[var(--text-2)] mt-0.5 truncate max-w-[280px]">{userEmail || "—"}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-base font-semibold text-[var(--text-1)] tracking-tight">Signed In</p>
+              <p className="text-sm font-medium text-[var(--text-2)] mt-0.5 truncate">{userEmail || "—"}</p>
             </div>
           </div>
           <button
             onClick={handleSignOut}
-            className="px-4 py-2 text-xs font-bold border border-[var(--border)] rounded-xl hover:bg-[var(--bg-2)] text-[var(--text-2)] transition-colors cursor-pointer flex items-center gap-1.5"
+            className="px-4 py-2 text-xs font-bold border border-[var(--border)] rounded-xl hover:bg-[var(--bg-2)] text-[var(--text-2)] transition-colors cursor-pointer flex items-center justify-center gap-1.5 w-full sm:w-auto flex-shrink-0"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
@@ -396,8 +396,8 @@ export default function SettingsPage() {
               </svg>
             </div>
             <div>
-              <p className="text-base font-extrabold text-red-600 dark:text-red-400">Danger Zone</p>
-              <p className="text-xs font-semibold text-red-500/80 dark:text-red-400/70 mt-0.5">These actions are permanent and cannot be undone.</p>
+              <p className="text-base font-semibold text-red-600 dark:text-red-400 tracking-tight">Danger Zone</p>
+              <p className="text-xs font-normal text-red-500/80 dark:text-red-400/70 mt-0.5 leading-relaxed">These actions are permanent and cannot be undone.</p>
             </div>
           </div>
           <div className="divide-y divide-red-100 dark:divide-red-900/30">
@@ -428,8 +428,8 @@ export default function SettingsPage() {
                 <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
               </div>
               <div>
-                <h3 className="text-base font-bold text-[var(--text-1)]">Clear Quiz History?</h3>
-                <p className="text-xs text-[var(--text-3)] mt-1 leading-relaxed">All your past quiz attempts, scores, and accuracy records will be permanently deleted. This cannot be undone.</p>
+                <h3 className="text-base font-semibold text-[var(--text-1)] tracking-tight">Clear Quiz History?</h3>
+                <p className="text-xs font-normal text-[var(--text-3)] mt-1 leading-relaxed">All your past quiz attempts, scores, and accuracy records will be permanently deleted. This cannot be undone.</p>
               </div>
             </div>
             <div className="flex justify-end gap-2.5">
@@ -451,8 +451,8 @@ export default function SettingsPage() {
                 <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
               </div>
               <div>
-                <h3 className="text-base font-bold text-[var(--text-1)]">Purge All Account Data?</h3>
-                <p className="text-xs text-[var(--text-3)] mt-1 leading-relaxed">This will permanently erase <span className="font-semibold text-red-500">every document, quiz, chunk, and score</span> associated with your account. You will be signed out. This is irreversible.</p>
+                <h3 className="text-base font-semibold text-[var(--text-1)] tracking-tight">Purge All Account Data?</h3>
+                <p className="text-xs font-normal text-[var(--text-3)] mt-1 leading-relaxed">This will permanently erase <span className="font-semibold text-red-500">every document, quiz, chunk, and score</span> associated with your account. You will be signed out. This is irreversible.</p>
               </div>
             </div>
             <div className="flex justify-end gap-2.5">
@@ -467,7 +467,7 @@ export default function SettingsPage() {
 
       {/* ── Toast ── */}
       {toast && (
-        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border animate-in fade-in slide-in-from-bottom-4 duration-200 ${
+        <div className={`fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:max-w-sm z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border animate-in fade-in slide-in-from-bottom-4 duration-200 ${
           toast.type === "error"
             ? "bg-red-600 text-white border-red-700"
             : "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 border-zinc-800 dark:border-slate-200"
@@ -477,7 +477,7 @@ export default function SettingsPage() {
           ) : (
             <svg className="w-4 h-4 flex-shrink-0 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
           )}
-          <span className="text-xs font-semibold">{toast.message}</span>
+          <span className="text-xs font-semibold break-words">{toast.message}</span>
         </div>
       )}
     </AppShell>

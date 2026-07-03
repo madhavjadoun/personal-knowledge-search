@@ -57,18 +57,18 @@ export default function FAQPage() {
             >
               <button
                 onClick={() => setOpenIndex(isOpen ? null : idx)}
-                className="w-full text-left px-6 py-4.5 flex justify-between items-start gap-4 hover:bg-[var(--bg-2)]/30 transition-colors cursor-pointer"
+                className="w-full text-left px-4 sm:px-6 py-4 flex justify-between items-start gap-3 sm:gap-4 hover:bg-[var(--bg-2)]/30 transition-colors cursor-pointer"
               >
-                <div className="flex gap-3 text-sm font-bold text-[var(--text-1)]">
+                <div className="flex gap-3 text-sm font-bold text-[var(--text-1)] min-w-0 flex-1">
                   <span className="text-[var(--indigo)] select-none flex-shrink-0 w-5">0{idx + 1}</span>
-                  <span>{item.q}</span>
+                  <span className="break-words">{item.q}</span>
                 </div>
                 <span className={`text-[var(--text-3)] transition-transform duration-200 mt-0.5 ${isOpen ? "rotate-180" : ""}`}>
                   ▼
                 </span>
               </button>
               {isOpen && (
-                <div className="pl-14 pr-6 pb-4.5 pt-1 text-xs font-semibold text-[var(--text-2)] leading-relaxed animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="pl-10 sm:pl-14 pr-4 sm:pr-6 pb-4.5 pt-1 text-xs font-semibold text-[var(--text-2)] leading-relaxed break-words animate-in fade-in slide-in-from-top-1 duration-150">
                   {item.a}
                 </div>
               )}

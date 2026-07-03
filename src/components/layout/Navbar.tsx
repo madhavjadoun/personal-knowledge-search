@@ -45,7 +45,7 @@ export default function Navbar() {
             <span className="text-lg font-black text-white">K</span>
             <div className="absolute inset-0 -z-10 rounded-xl bg-indigo-500 blur-md opacity-0 group-hover:opacity-40 transition-opacity duration-300"></div>
           </div>
-          <span className="font-bold text-lg tracking-tight bg-linear-to-r from-(--foreground) to-(--foreground)/70 bg-clip-text text-transparent group-hover:from-(--foreground) group-hover:to-(--foreground)/90 transition-colors">
+          <span className="font-bold text-base sm:text-lg tracking-tight bg-linear-to-r from-(--foreground) to-(--foreground)/70 bg-clip-text text-transparent group-hover:from-(--foreground) group-hover:to-(--foreground)/90 transition-colors truncate max-w-[130px] sm:max-w-none">
             KnowledgeSearch
           </span>
         </Link>
@@ -76,7 +76,7 @@ export default function Navbar() {
         </nav>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
           {/* Premium Theme Toggle Button (CSS transition-based) */}
           <button
             onClick={toggleTheme}

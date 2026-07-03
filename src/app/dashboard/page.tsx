@@ -352,187 +352,181 @@ export default function DashboardPage() {
 
   return (
     <AppShell title="Dashboard" subtitle="Overview of your private knowledge base.">
-      <div className="max-w-7xl mx-auto space-y-7">
+      <div className="max-w-7xl mx-auto space-y-6">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3">
             <OrbitLoader size={44} />
-            <p className="text-sm font-semibold text-zinc-400 dark:text-zinc-500">
+            <p className="text-sm font-medium text-[var(--text-4)]">
               Loading workspace metrics...
             </p>
           </div>
         ) : (
           <>
-            {/* Stats grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* ── Stats grid ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {stats.map((s) => (
                 <div
                   key={s.label}
-                  className="glass-card rounded-2xl p-6 relative overflow-hidden flex flex-col justify-between min-h-[160px]"
+                  className="glass-card rounded-2xl p-5 sm:p-6 relative overflow-hidden flex flex-col justify-between min-h-[168px] min-w-0"
                 >
+                  {/* Card header: label + icon */}
                   <div>
-                    <div className="flex items-center justify-between mb-4.5">
-                      <span className="text-[12px] font-bold tracking-[0.08em] uppercase text-[var(--text-2)]">
+                    <div className="flex items-start justify-between mb-4 gap-2">
+                      <span className="text-[11px] font-semibold tracking-widest uppercase text-[var(--text-4)] leading-tight mt-0.5 select-none">
                         {s.label}
                       </span>
-                      <span
-                        className="flex items-center justify-center p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-1)] bg-[var(--bg-2)]"
-                      >
+                      <span className="flex items-center justify-center p-1.5 rounded-lg border border-[var(--border)] text-[var(--text-2)] bg-[var(--bg-2)] flex-shrink-0">
                         {s.icon}
                       </span>
                     </div>
 
+                    {/* Card body: activity variant vs. value */}
                     {s.isActivity && s.activityData ? (
                       s.activityData.quizzesToday === 0 ? (
-                        <p className="text-[13px] font-bold text-[var(--text-3)] mt-6">
+                        <p className="text-[13px] font-medium text-[var(--text-3)] mt-5 leading-relaxed">
                           No quiz generated today.
                         </p>
                       ) : (
-                        <div className="space-y-1.5 mt-2">
-                          <div className="flex justify-between text-xs font-semibold text-[var(--text-2)]">
-                            <span>Quizzes Generated Today</span>
-                            <span className="text-[var(--text-1)] font-extrabold">{s.activityData.quizzesToday}</span>
+                        <div className="space-y-2 mt-1 min-w-0">
+                          <div className="flex justify-between items-center gap-2">
+                            <span className="text-[12px] font-medium text-[var(--text-3)] min-w-0 leading-snug">Quizzes Generated</span>
+                            <span className="text-stat-value text-base flex-shrink-0">{s.activityData.quizzesToday}</span>
                           </div>
-                          <div className="flex justify-between text-xs font-semibold text-[var(--text-2)]">
-                            <span>MCQs Generated Today</span>
-                            <span className="text-[var(--text-1)] font-extrabold">{s.activityData.mcqsToday}</span>
+                          <div className="flex justify-between items-center gap-2">
+                            <span className="text-[12px] font-medium text-[var(--text-3)] min-w-0 leading-snug">MCQs Generated</span>
+                            <span className="text-stat-value text-base flex-shrink-0">{s.activityData.mcqsToday}</span>
                           </div>
                           {s.activityData.lastTime && (
-                            <div className="flex justify-between text-xs font-semibold text-[var(--text-2)]">
-                              <span>Last Quiz Time</span>
-                              <span className="text-[var(--text-1)] font-extrabold">{s.activityData.lastTime}</span>
+                            <div className="flex justify-between items-center gap-2">
+                              <span className="text-[12px] font-medium text-[var(--text-3)] min-w-0 leading-snug">Last Quiz Time</span>
+                              <span className="text-stat-value text-base flex-shrink-0">{s.activityData.lastTime}</span>
                             </div>
                           )}
                         </div>
                       )
                     ) : (
-                      <p
-                        className="text-xl font-extrabold tracking-tight text-[var(--text-1)]"
-                        style={{ letterSpacing: "-0.03em" }}
-                      >
+                      <p className="text-[22px] sm:text-2xl font-bold text-[var(--text-1)] tracking-tight leading-tight break-words mt-1">
                         {s.value}
                       </p>
                     )}
                   </div>
 
+                  {/* Card footer: progress bar + delta */}
                   {!s.isActivity && (
-                    s.progress !== undefined ? (
-                      <div className="mt-4">
-                        <div
-                          className="h-1.5 rounded-full overflow-hidden bg-[var(--bg-3)]"
-                        >
+                    <div className="mt-5">
+                      {s.progress !== undefined && (
+                        <div className="h-[3px] rounded-full overflow-hidden bg-[var(--bg-3)] mb-2.5">
                           <div
-                            className="h-full rounded-full bg-[var(--indigo)]"
+                            className="h-full rounded-full bg-[var(--indigo)] transition-all duration-500"
                             style={{ width: `${s.progress}%` }}
                           />
                         </div>
-                        <p className="text-[13px] font-bold text-[var(--text-2)] mt-2.5">
-                          {s.label === "Today's Credits" ? resetsIn : s.delta}
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-[13px] font-bold text-[var(--text-2)] mt-2.5">
+                      )}
+                      <p className="text-[11.5px] font-medium text-[var(--text-4)] leading-snug">
                         {s.label === "Today's Credits" ? resetsIn : s.delta}
                       </p>
-                    )
+                    </div>
                   )}
                 </div>
               ))}
             </div>
 
-            {/* Asymmetrical operational grid layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-              
-              {/* LEFT COLUMN: Recent Documents & Activity Log (3/5 width) */}
-              <div className="lg:col-span-3 space-y-6">
-                
-                {/* Recent Documents Card */}
-                <div className="glass-card rounded-2xl overflow-hidden flex flex-col justify-between">
-                  <div>
-                    <div
-                      className="flex items-center justify-between px-6.5 py-5.5 border-b border-[var(--border)]"
-                    >
-                      <p className="text-[12px] font-bold tracking-[0.08em] uppercase text-[var(--text-1)]">
-                        Recent Documents
-                      </p>
-                      <Link
-                        href="/documents"
-                        className="text-xs font-extrabold text-[var(--text-2)] hover:text-[var(--indigo)] hover:underline transition-colors"
-                      >
-                        View all documents →
-                      </Link>
-                    </div>
+            {/* ── Asymmetrical operational grid layout ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
 
-                    <div className="divide-y divide-[var(--border)]">
-                      {!hasDocs ? (
-                        <div className="text-center py-16 px-6 space-y-3">
-                          <p className="text-[16px] font-bold text-[var(--text-1)]">
-                            No recent documents indexed
-                          </p>
-                          <p className="text-[13px] font-semibold text-[var(--text-2)] max-w-[280px] mx-auto">
-                            Upload your first document to begin building a searchable knowledge base.
-                          </p>
-                        </div>
-                      ) : (
-                        recentDocs.map((doc) => (
-                          <div
-                            key={doc.name}
-                            className="flex items-center gap-4 px-6.5 py-4.5 transition-all duration-200 hover:bg-[var(--bg-2)]/50"
-                            style={{ cursor: "default" }}
-                          >
-                            <div
-                              className="h-9.5 w-9.5 rounded-xl flex items-center justify-center flex-shrink-0 bg-[var(--bg-2)] border border-[var(--border)]"
-                            >
-                              <svg className="w-4.5 h-4.5 text-[var(--text-1)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                              </svg>
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[15px] font-bold text-[var(--text-1)] truncate">
-                                {doc.name}
-                              </p>
-                              <p className="text-[13px] font-semibold text-[var(--text-2)] mt-0.5">
-                                {doc.date} · {doc.size} · <span className="text-[var(--text-1)] font-extrabold">{doc.chunks} chunks</span>
-                              </p>
-                            </div>
-                            <span className="text-[10px] font-semibold text-[var(--text-3)] border border-[var(--border)] px-1.5 py-0.5 rounded flex-shrink-0 select-none bg-transparent">
-                              Ready
-                            </span>
+              {/* LEFT COLUMN: Recent Documents & Activity Log (3/5 width) */}
+              <div className="lg:col-span-3 space-y-5">
+
+                {/* Recent Documents Card */}
+                <div className="glass-card rounded-2xl overflow-hidden">
+                  {/* Card header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-5 sm:px-6 py-4 sm:py-5 border-b border-[var(--border)]">
+                    <p className="text-[11px] font-semibold tracking-widest uppercase text-[var(--text-2)] select-none">
+                      Recent Documents
+                    </p>
+                    <Link
+                      href="/documents"
+                      className="text-[11.5px] font-semibold text-[var(--text-4)] hover:text-[var(--indigo)] transition-colors whitespace-nowrap tracking-tight"
+                    >
+                      View all →
+                    </Link>
+                  </div>
+
+                  {/* Document rows */}
+                  <div className="divide-y divide-[var(--border)]">
+                    {!hasDocs ? (
+                      <div className="text-center py-14 px-6 space-y-2">
+                        <p className="text-[15px] font-semibold text-[var(--text-1)] tracking-tight">
+                          No documents indexed yet
+                        </p>
+                        <p className="text-[12.5px] font-normal text-[var(--text-3)] max-w-[260px] mx-auto leading-relaxed">
+                          Upload your first document to begin building a searchable knowledge base.
+                        </p>
+                      </div>
+                    ) : (
+                      recentDocs.map((doc) => (
+                        <div
+                          key={doc.name}
+                          className="flex items-center gap-3 sm:gap-4 px-5 sm:px-6 py-3.5 sm:py-4 transition-colors duration-150 hover:bg-[var(--bg-2)]/60 min-w-0"
+                          style={{ cursor: "default" }}
+                        >
+                          {/* File icon */}
+                          <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-[var(--bg-2)] border border-[var(--border)]">
+                            <svg className="w-4 h-4 text-[var(--text-2)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                            </svg>
                           </div>
-                        ))
-                      )}
-                    </div>
+                          {/* Doc name + metadata */}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[13.5px] font-semibold text-[var(--text-1)] truncate leading-snug tracking-tight">
+                              {doc.name}
+                            </p>
+                            <p className="text-[11.5px] font-normal text-[var(--text-4)] mt-0.5 truncate">
+                              {doc.date} · {doc.size} ·{" "}
+                              <span className="font-semibold text-[var(--text-3)] tabular-nums">{doc.chunks} chunks</span>
+                            </p>
+                          </div>
+                          {/* Status badge */}
+                          <span className="text-[10px] font-semibold tracking-wider uppercase text-[var(--text-4)] border border-[var(--border)] px-2 py-0.5 rounded-md flex-shrink-0 select-none bg-[var(--bg-2)]">
+                            Ready
+                          </span>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
 
                 {/* Live Activity Stream Panel */}
                 <div className="glass-card rounded-2xl overflow-hidden">
-                  <div className="flex items-center justify-between px-6.5 py-5.5 border-b border-[var(--border)]">
-                    <h3 className="text-[12px] font-bold tracking-[0.08em] uppercase text-[var(--text-1)]">Recent Activity Stream</h3>
+                  <div className="flex items-center justify-between px-5 sm:px-6 py-4 sm:py-5 border-b border-[var(--border)]">
+                    <h3 className="text-[11px] font-semibold tracking-widest uppercase text-[var(--text-2)] select-none">Recent Activity</h3>
                   </div>
-                  
-                  <div className="p-6.5">
+
+                  <div className="p-5 sm:p-6">
                     {!hasDocs ? (
-                      <p className="text-[13px] font-bold text-[var(--text-2)] py-4 text-center">
+                      <p className="text-[12.5px] font-medium text-[var(--text-3)] py-5 text-center leading-relaxed">
                         No activity logged. Upload a document to start the sync pipeline.
                       </p>
                     ) : (
-                      <div className="space-y-5">
+                      <div className="space-y-4">
                         {recentLogs.map((log, idx) => (
-                          <div key={idx} className="flex gap-4 text-sm items-start">
+                          <div key={idx} className="flex gap-3.5 items-start">
+                            {/* Activity type icon */}
                             <div className="mt-0.5 flex-shrink-0">
-                              <span className="h-5.5 w-5.5 rounded-full flex items-center justify-center bg-[var(--bg-2)] border border-[var(--border-strong)] text-[9px]">
+                              <span className="h-6 w-6 rounded-lg flex items-center justify-center bg-[var(--bg-2)] border border-[var(--border)] text-[10px] leading-none select-none">
                                 {log.type === "index" && "📌"}
                                 {log.type === "chunk" && "✂️"}
                                 {log.type === "upload" && "📦"}
                                 {log.type === "retrieval" && "⚡"}
                               </span>
                             </div>
+                            {/* Log content */}
                             <div className="flex-1 min-w-0">
                               <div className="flex justify-between items-baseline gap-2">
-                                <p className="font-bold text-[var(--text-1)] text-sm truncate">{log.title}</p>
-                                <span className="text-[10px] font-mono font-bold text-[var(--text-2)] flex-shrink-0">{log.time}</span>
+                                <p className="text-[13px] font-semibold text-[var(--text-1)] truncate tracking-tight leading-snug">{log.title}</p>
+                                <span className="text-[10px] font-mono font-medium text-[var(--text-4)] flex-shrink-0 tabular-nums">{log.time}</span>
                               </div>
-                              <p className="text-[13px] font-semibold text-[var(--text-2)] mt-0.5 leading-relaxed">{log.desc}</p>
+                              <p className="text-[11.5px] font-normal text-[var(--text-3)] mt-0.5 leading-relaxed">{log.desc}</p>
                             </div>
                           </div>
                         ))}
@@ -544,31 +538,33 @@ export default function DashboardPage() {
               </div>
 
               {/* RIGHT COLUMN: Status & Actions Sidebar (2/5 width) */}
-              <div className="space-y-6 lg:col-span-2">
-                
-                {/* Knowledge Health Card */}
-                <div className="glass-card rounded-2xl p-6.5 space-y-4.5">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-[12px] font-bold tracking-[0.08em] uppercase text-[var(--text-1)]">Index Status</h3>
+              <div className="space-y-5 lg:col-span-2">
+
+                {/* Index Status Card */}
+                <div className="glass-card rounded-2xl overflow-hidden">
+                  <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-[var(--border)]">
+                    <h3 className="text-[11px] font-semibold tracking-widest uppercase text-[var(--text-2)] select-none">Index Status</h3>
                   </div>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between border-b border-[var(--border)] pb-2.5">
-                      <span className="text-[var(--text-2)] text-[13px] font-bold">Knowledge Base</span>
-                      <span className="font-extrabold text-[var(--text-1)] text-[13px]">Synced</span>
+                  <div className="px-5 sm:px-6 py-4 space-y-0 divide-y divide-[var(--border)]">
+                    <div className="flex items-center justify-between py-3">
+                      <span className="text-[12.5px] font-medium text-[var(--text-3)]">Knowledge Base</span>
+                      <span className="text-[12.5px] font-semibold text-[var(--text-1)] tracking-tight">Synced</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-[var(--text-2)] text-[13px] font-bold">Last Synced</span>
-                      <span className="font-extrabold text-[var(--text-1)] text-[13px]">
+                    <div className="flex items-center justify-between py-3">
+                      <span className="text-[12.5px] font-medium text-[var(--text-3)]">Last Synced</span>
+                      <span className="text-[12.5px] font-semibold text-[var(--text-1)] tracking-tight">
                         {hasDocs ? "Up to date" : "No files indexed"}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Suggested Actions Card */}
-                <div className="glass-card rounded-2xl p-6.5 space-y-4.5">
-                  <h3 className="text-[12px] font-bold tracking-[0.08em] uppercase text-[var(--text-1)]">Workspace Actions</h3>
-                  <div className="flex flex-col gap-2.5">
+                {/* Workspace Actions Card */}
+                <div className="glass-card rounded-2xl overflow-hidden">
+                  <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-[var(--border)]">
+                    <h3 className="text-[11px] font-semibold tracking-widest uppercase text-[var(--text-2)] select-none">Workspace Actions</h3>
+                  </div>
+                  <div className="p-3 sm:p-4 flex flex-col gap-1.5">
                     {[
                       { q: "Generate New Quiz", path: "/chat" },
                       { q: "Upload Document", path: "/documents" },
@@ -578,10 +574,15 @@ export default function DashboardPage() {
                       <Link
                         key={item.q}
                         href={item.path}
-                        className="text-sm text-left px-4 py-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text-1)] hover:text-[var(--indigo)] hover:border-slate-400 dark:hover:border-zinc-500 hover:scale-[1.01] hover:shadow-sm active:scale-99 transition-all duration-200 font-extrabold cursor-pointer flex items-center justify-between group/btn"
+                        className="text-[13px] font-semibold text-left px-4 py-2.5 rounded-xl border border-[var(--border)] bg-transparent text-[var(--text-1)] hover:text-[var(--indigo)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-2)] active:scale-[0.99] transition-all duration-150 tracking-tight cursor-pointer flex items-center justify-between group/btn"
                       >
                         <span>{item.q}</span>
-                        <span className="opacity-0 group-hover/btn:opacity-100 transition-opacity text-[var(--text-4)] select-none">→</span>
+                        <svg
+                          className="w-3 h-3 opacity-0 group-hover/btn:opacity-60 transition-opacity duration-150 text-[var(--text-3)] flex-shrink-0"
+                          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                        </svg>
                       </Link>
                     ))}
                   </div>
@@ -591,36 +592,31 @@ export default function DashboardPage() {
 
             </div>
 
-            {/* Quick actions */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {/* ── Quick actions ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {QUICK.map((item) => (
                 <Link
                   key={item.label}
                   href={item.href}
-                  className="glass-card rounded-2xl p-6 flex items-center gap-4 group"
+                  className="glass-card rounded-2xl px-5 py-4 flex items-center gap-4 group"
                 >
-                  <div
-                    className="h-10 w-10 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all duration-200 group-hover:scale-[1.04]"
-                    style={{
-                      background: "var(--bg-2)",
-                      color: "var(--indigo)",
-                    }}
-                  >
+                  {/* Icon container */}
+                  <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-[var(--bg-2)] border border-[var(--border)] text-[var(--text-2)] transition-all duration-200 group-hover:scale-[1.06] group-hover:border-[var(--border-strong)]">
                     {item.icon}
                   </div>
-                  <div className="min-w-0">
-                    <p
-                      className="text-[16px] font-bold text-[var(--text-1)]"
-                    >
+                  {/* Label block */}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13.5px] font-semibold text-[var(--text-1)] tracking-tight leading-snug">
                       {item.label}
                     </p>
-                    <p className="text-[13px] font-bold text-[var(--text-2)] mt-0.5">
+                    <p className="text-[11.5px] font-normal text-[var(--text-4)] mt-0.5 leading-snug truncate">
                       {item.sub}
                     </p>
                   </div>
+                  {/* Trailing arrow */}
                   <svg
-                    className="w-3.5 h-3.5 ml-auto flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity -translate-x-1 group-hover:translate-x-0 duration-200 text-[var(--text-4)]"
-                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                    className="w-3 h-3 ml-auto flex-shrink-0 opacity-0 group-hover:opacity-50 transition-all duration-200 -translate-x-0.5 group-hover:translate-x-0 text-[var(--text-3)]"
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                   </svg>
