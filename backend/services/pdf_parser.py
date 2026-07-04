@@ -167,3 +167,91 @@ def parse_pdf(file_bytes: bytes) -> dict[str, Any]:
         "is_large": is_large,
         "pages": total_pages,
     }
+
+
+def parse_image(file_bytes: bytes) -> dict:
+    """
+    Extract text from an image file (PNG, JPG, JPEG, WEBP) via OCR.
+
+    Steps:
+      1. Open image with Pillow and force-decode to catch corruption early.
+      2. Auto-rotate using EXIF orientation metadata — critical for phone photos
+         that are stored rotated; without this OCR accuracy drops significantly.
+      3. Convert to grayscale for better tesseract accuracy.
+      4. Run pytesseract OCR (same engine used by _ocr_pdf for scanned PDFs).
+      5. Validate that the result contains meaningful text.
+
+    Returns:
+        {
+            "text":     str   — OCR-extracted text,
+            "is_large": bool  — True if text length > 3000 chars,
+            "pages":    int   — always 1 (single image = single page),
+        }
+
+    Raises:
+        ValueError: For empty input, corrupted image, or empty OCR result.
+    """
+    import io as _io
+
+    import pytesseract
+    from PIL import Image, ImageOps
+
+    # ── Guard: empty bytes ────────────────────────────────────────────────────
+    if not file_bytes:
+        raise ValueError("Image file is empty — no bytes received.")
+
+    print(f"[pdf_parser] parse_image: opening {len(file_bytes)}-byte image...")
+
+    # ── Open image ────────────────────────────────────────────────────────────
+    try:
+        img = Image.open(_io.BytesIO(file_bytes))
+        img.load()  # force full decode so corrupt images fail here, not later
+    except Exception as exc:
+        raise ValueError(
+            f"Could not open image — the file may be corrupted or in an unsupported format. Detail: {exc}"
+        ) from exc
+
+    # ── Step 1: Correct EXIF orientation ─────────────────────────────────────
+    # Phone cameras embed rotation in EXIF metadata without actually rotating
+    # pixel data. ImageOps.exif_transpose() applies the rotation so tesseract
+    # sees the image right-side-up, which is essential for accurate OCR.
+    try:
+        img = ImageOps.exif_transpose(img)
+        print("[pdf_parser] parse_image: EXIF orientation applied.")
+    except Exception:
+        print("[pdf_parser] parse_image: No EXIF orientation data or transpose skipped.")
+
+    # ── Step 2: Convert to grayscale ──────────────────────────────────────────
+    if img.mode != "L":
+        img = img.convert("L")
+    print("[pdf_parser] parse_image: converted to grayscale.")
+
+    # ── Step 3: Run OCR ───────────────────────────────────────────────────────
+    print("[pdf_parser] parse_image: running pytesseract OCR...")
+    try:
+        text = pytesseract.image_to_string(img, lang="eng")
+    except Exception as exc:
+        raise ValueError(f"OCR failed on image. Detail: {exc}") from exc
+    finally:
+        img.close()
+
+    # ── Step 4: Validate non-empty result ─────────────────────────────────────
+    text = text.strip()
+    print(f"[pdf_parser] parse_image: OCR complete — {len(text)} chars extracted.")
+
+    if not text:
+        raise ValueError(
+            "No readable text was detected in this image. "
+            "Please ensure the image contains clear, legible text and try again."
+        )
+
+    is_large = len(text) > 3000
+    print(
+        f"[pdf_parser] parse_image: Done — chars={len(text)}, is_large={is_large}"
+    )
+
+    return {
+        "text":     text,
+        "is_large": is_large,
+        "pages":    1,
+    }

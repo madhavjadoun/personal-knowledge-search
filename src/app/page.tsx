@@ -198,11 +198,30 @@ export default function WelcomePage() {
       formData.append("user_id", user.id);
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-      const processResponse = await fetch(`${apiUrl}/documents/upload`, {
+      const uploadUrl = `${apiUrl}/documents/upload`;
+      const uploadHeaders = {
+        "Authorization": `Bearer ${session.access_token}`,
+      };
+
+      if (process.env.NODE_ENV !== "production") {
+        const formFile = formData.get("file");
+        console.log("[Upload] file.name:", file.name);
+        console.log("[Upload] file.type:", file.type);
+        console.log("[Upload] file.size:", file.size);
+        console.log("[Upload] FormData file:", formFile);
+        if (formFile instanceof File) {
+          console.log("[Upload] FormData filename:", formFile.name);
+          console.log("[Upload] FormData content type:", formFile.type);
+          console.log("[Upload] FormData size:", formFile.size);
+        }
+        console.log("[Upload] Request URL:", uploadUrl);
+        console.log("[Upload] Request headers:", uploadHeaders);
+        console.log("[Upload] Multipart Content-Type: browser-generated with boundary");
+      }
+
+      const processResponse = await fetch(uploadUrl, {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${session.access_token}`,
-        },
+        headers: uploadHeaders,
         body: formData,
       });
 
@@ -522,7 +541,7 @@ export default function WelcomePage() {
                   <input
                     ref={fileRef}
                     type="file"
-                    accept=".pdf"
+                    accept="application/pdf,.pdf,image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
                     className="hidden"
                     onChange={onFileChange}
                   />

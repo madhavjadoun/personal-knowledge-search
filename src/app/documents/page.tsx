@@ -18,12 +18,17 @@ interface SupabaseDoc {
 
 /* Color config per extension */
 const EXT_STYLE: Record<string, { bg: string; color: string }> = {
-  PDF: { bg: "rgba(239,68,68,0.08)", color: "#DC2626" },
-  TXT: { bg: "rgba(59,130,246,0.08)", color: "#2563EB" },
-  SQL: { bg: "rgba(16,185,129,0.08)", color: "#059669" },
-  MD: { bg: "rgba(124,58,237,0.08)", color: "#7C3AED" },
-  JSON: { bg: "rgba(245,158,11,0.08)", color: "#D97706" },
-  PY: { bg: "rgba(6,182,212,0.08)", color: "#0891B2" },
+  PDF:  { bg: "rgba(239,68,68,0.08)",   color: "#DC2626" },
+  TXT:  { bg: "rgba(59,130,246,0.08)",  color: "#2563EB" },
+  SQL:  { bg: "rgba(16,185,129,0.08)",  color: "#059669" },
+  MD:   { bg: "rgba(124,58,237,0.08)",  color: "#7C3AED" },
+  JSON: { bg: "rgba(245,158,11,0.08)",  color: "#D97706" },
+  PY:   { bg: "rgba(6,182,212,0.08)",   color: "#0891B2" },
+  // Image types
+  PNG:  { bg: "rgba(20,184,166,0.08)",  color: "#0D9488" },
+  JPG:  { bg: "rgba(20,184,166,0.08)",  color: "#0D9488" },
+  JPEG: { bg: "rgba(20,184,166,0.08)",  color: "#0D9488" },
+  WEBP: { bg: "rgba(99,102,241,0.08)",  color: "#6366F1" },
 };
 
 /* Format bytes helper */
@@ -209,11 +214,30 @@ export default function DocumentsPage() {
       formData.append("user_id", authenticatedUserId);
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-      const processResponse = await fetch(`${apiUrl}/documents/upload`, {
+      const uploadUrl = `${apiUrl}/documents/upload`;
+      const uploadHeaders = {
+        "Authorization": `Bearer ${token}`,
+      };
+
+      if (process.env.NODE_ENV !== "production") {
+        const formFile = formData.get("file");
+        console.log("[Documents Upload] file.name:", file.name);
+        console.log("[Documents Upload] file.type:", file.type);
+        console.log("[Documents Upload] file.size:", file.size);
+        console.log("[Documents Upload] FormData file:", formFile);
+        if (formFile instanceof File) {
+          console.log("[Documents Upload] FormData filename:", formFile.name);
+          console.log("[Documents Upload] FormData content type:", formFile.type);
+          console.log("[Documents Upload] FormData size:", formFile.size);
+        }
+        console.log("[Documents Upload] Request URL:", uploadUrl);
+        console.log("[Documents Upload] Request headers:", uploadHeaders);
+        console.log("[Documents Upload] Multipart Content-Type: browser-generated with boundary");
+      }
+
+      const processResponse = await fetch(uploadUrl, {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
+        headers: uploadHeaders,
         body: formData
       });
 
@@ -308,7 +332,7 @@ export default function DocumentsPage() {
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
-            accept="application/pdf,.pdf"
+            accept="application/pdf,.pdf,image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
             className="hidden"
           />
           <button

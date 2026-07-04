@@ -15,7 +15,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Request
 
 from services.auth import get_current_user_id
-from services.pdf_parser import parse_pdf
+from services.pdf_parser import parse_image, parse_pdf
 from services.supabase_client import (
     get_client,
     get_documents,
@@ -35,6 +35,22 @@ DEFAULT_MAX_UPLOAD_MB = 25
 # ── Hardening Limits ──────────────────────────────────────────────────────────
 MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "100"))
 MAX_PDF_CHARS = int(os.getenv("MAX_PDF_CHARS", "500000"))
+
+# ── Allowed file types for upload ─────────────────────────────────────────────
+ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+ALLOWED_IMAGE_CONTENT_TYPES = {"image/png", "image/jpeg", "image/webp"}
+# .jpg and .jpeg both map to image/jpeg for storage
+_EXT_TO_CONTENT_TYPE: dict[str, str] = {
+    ".png":  "image/png",
+    ".jpg":  "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+}
+_CONTENT_TYPE_TO_EXT: dict[str, str] = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/webp": ".webp",
+}
 
 # Concurrency semaphore to prevent overloading pdf parsing resources
 upload_semaphore = asyncio.Semaphore(5)
@@ -98,9 +114,13 @@ async def _read_limited_upload(file: UploadFile, max_bytes: int) -> bytes:
         total += len(chunk)
         if total > max_bytes:
             max_mb = max_bytes / (1024 * 1024)
+            print(
+                "[documents] Rejecting because upload size limit failed: "
+                f"bytes_read={total}, max_bytes={max_bytes}"
+            )
             raise HTTPException(
                 status_code=413,
-                detail=f"File is too large. Maximum allowed PDF size is {max_mb:.0f} MB.",
+                detail=f"File is too large. Maximum allowed file size is {max_mb:.0f} MB.",
             )
         chunks.append(chunk)
     return b"".join(chunks)
@@ -116,10 +136,15 @@ async def upload_document(
     current_user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """
-    Upload a PDF, extract text, store in Supabase Storage, and save chunks.
+    Upload a PDF or image (PNG/JPG/JPEG/WEBP), extract text, store in Supabase
+    Storage, and save chunks for quiz generation.
+
+    PDFs go through the existing pdfplumber + OCR fallback pipeline.
+    Images go through OCR directly (with EXIF orientation correction).
+    Everything after text extraction is identical for both types.
 
     Form data:
-        file    — multipart PDF upload
+        file    — multipart upload (PDF or image)
         user_id — legacy field; ignored in favor of the authenticated JWT user
 
     Returns:
@@ -146,34 +171,95 @@ async def upload_document(
             print("[documents] Ignoring mismatched legacy user_id form field.")
 
         print(f"[documents] Upload request — filename='{file.filename}', authenticated_user_id='{current_user_id}'")
+        print(f"[documents] Upload content_type='{file.content_type}'")
+        print(f"[documents] Upload headers={dict(file.headers)}")
 
-        if not file.filename or not file.filename.lower().endswith(".pdf"):
+        # ── Determine file type from extension ────────────────────────────────
+        original_filename = os.path.basename(file.filename or "document")
+        fname_lower = original_filename.lower()
+        detected_extension = os.path.splitext(fname_lower)[1]
+
+        if file.content_type in ALLOWED_IMAGE_CONTENT_TYPES:
+            file_type = "image"
+        elif fname_lower.endswith(".pdf"):
+            file_type = "pdf"
+        elif detected_extension in ALLOWED_IMAGE_EXTENSIONS:
+            file_type = "image"
+        else:
+            print(
+                "[documents] Rejecting because extension/content-type validation failed: "
+                f"filename='{original_filename}', extension='{detected_extension}', "
+                f"content_type='{file.content_type}'"
+            )
             raise HTTPException(
                 status_code=400,
-                detail="Only PDF files are accepted. Please upload a .pdf file.",
+                detail=(
+                    "Unsupported file type. Please upload a PDF or an image "
+                    "(PNG, JPG, JPEG, WEBP)."
+                ),
             )
-        if file.content_type and file.content_type not in ("application/pdf", "application/x-pdf"):
-            raise HTTPException(
-                status_code=400,
-                detail="Only PDF files are accepted. Please upload a valid PDF.",
-            )
+        print(
+            "[documents] Detected upload type: "
+            f"extension='{detected_extension}', file_type='{file_type}', "
+            f"content_type='{file.content_type}'"
+        )
 
-        # ── Magic Byte Validation ─────────────────────────────────────────────
-        magic = await file.read(4)
-        await file.seek(0)
-        if magic != b"%PDF":
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid file format. The file is not a valid PDF document.",
-            )
+        # ── Validate content-type when provided by the client ─────────────────
+        if file.content_type:
+            if file_type == "pdf" and file.content_type not in ("application/pdf", "application/x-pdf"):
+                print(
+                    "[documents] Rejecting because content type validation failed for PDF: "
+                    f"filename='{original_filename}', content_type='{file.content_type}'"
+                )
+                raise HTTPException(
+                    status_code=400,
+                    detail="Only PDF files are accepted for the .pdf extension. Please upload a valid PDF.",
+                )
+            if file_type == "image" and file.content_type not in ALLOWED_IMAGE_CONTENT_TYPES:
+                print(
+                    "[documents] Rejecting because content type validation failed for image: "
+                    f"filename='{original_filename}', content_type='{file.content_type}'"
+                )
+                raise HTTPException(
+                    status_code=400,
+                    detail="Unsupported image type. Please upload a PNG, JPG, JPEG, or WEBP image.",
+                )
 
-        # Generate a random UUID filename for storage path
+        # ── PDF magic-byte validation (images skip this) ──────────────────────
+        if file_type == "pdf":
+            magic = await file.read(4)
+            await file.seek(0)
+            if magic != b"%PDF":
+                print(
+                    "[documents] Rejecting because magic bytes failed for PDF: "
+                    f"filename='{original_filename}', magic={magic!r}"
+                )
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid file format. The file is not a valid PDF document.",
+                )
+
+        # ── Build storage filename and derive title ───────────────────────────
         file_uuid = str(uuid.uuid4())
-        safe_filename = f"{file_uuid}.pdf"
-        original_filename = os.path.basename(file.filename or "document.pdf")
-        title = original_filename.removesuffix(".pdf").removesuffix(".PDF").replace("_", " ").strip()
-        if not title:
-            title = "Untitled Document"
+        if file_type == "pdf":
+            storage_ext          = ".pdf"
+            storage_content_type = "application/pdf"
+        else:
+            last_dot = original_filename.rfind(".")
+            submitted_ext        = original_filename[last_dot:].lower() if last_dot != -1 else ""
+            storage_ext          = submitted_ext if submitted_ext in ALLOWED_IMAGE_EXTENSIONS else _CONTENT_TYPE_TO_EXT.get(file.content_type or "", ".jpg")
+            storage_content_type = _EXT_TO_CONTENT_TYPE.get(storage_ext, "image/jpeg")
+
+        safe_filename = f"{file_uuid}{storage_ext}"
+
+        # Strip the file extension to produce a human-readable title
+        title = original_filename
+        for known_ext in (".pdf", ".PDF", ".png", ".PNG", ".jpg", ".JPG",
+                          ".jpeg", ".JPEG", ".webp", ".WEBP"):
+            if title.endswith(known_ext):
+                title = title[: -len(known_ext)]
+                break
+        title = title.replace("_", " ").strip() or "Untitled Document"
 
         # ── 2. Read bytes ─────────────────────────────────────────────────────────
         max_bytes = _max_upload_bytes()
@@ -182,40 +268,72 @@ async def upload_document(
         print(f"[documents] Read {file_size} bytes from original='{original_filename}' -> storage='{safe_filename}'")
 
         if file_size == 0:
+            print(f"[documents] Rejecting because uploaded file is empty: filename='{original_filename}'")
             raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
-        # ── 3. Parse PDF ──────────────────────────────────────────────────────────
-        print("[documents] Parsing PDF...")
-        try:
-            parsed = parse_pdf(file_bytes)
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-        except Exception as exc:
-            print(f"[documents] Unexpected PDF parsing failure: {exc}")
-            raise HTTPException(
-                status_code=500,
-                detail="PDF parsing failed unexpectedly. Please try again with a different PDF.",
-            ) from exc
+        # ── 3. Extract text (PDF or Image) ────────────────────────────────────────
+        if file_type == "pdf":
+            print("[documents] Parsing PDF...")
+            try:
+                parsed = parse_pdf(file_bytes)
+            except ValueError as exc:
+                print(f"[documents] Rejecting because PDF parser validation failed: {exc}")
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+            except Exception as exc:
+                print(f"[documents] Unexpected PDF parsing failure: {exc}")
+                raise HTTPException(
+                    status_code=500,
+                    detail="PDF parsing failed unexpectedly. Please try again with a different PDF.",
+                ) from exc
 
-        extracted_text: str  = parsed["text"]
-        is_large: bool       = parsed["is_large"]
-        pages: int           = parsed["pages"]
+            extracted_text: str = parsed["text"]
+            is_large: bool      = parsed["is_large"]
+            pages: int          = parsed["pages"]
 
-        # Enforce page count and character limits
-        if pages > MAX_PDF_PAGES:
-            raise HTTPException(
-                status_code=422,
-                detail=f"PDF has too many pages ({pages}). Maximum allowed is {MAX_PDF_PAGES} pages.",
-            )
-        if len(extracted_text) > MAX_PDF_CHARS:
-            raise HTTPException(
-                status_code=422,
-                detail=f"PDF text content is too large ({len(extracted_text)} characters). Maximum allowed is {MAX_PDF_CHARS} characters.",
-            )
+            # Enforce PDF-specific page count and character limits
+            if pages > MAX_PDF_PAGES:
+                print(
+                    "[documents] Rejecting because PDF page limit failed: "
+                    f"pages={pages}, max={MAX_PDF_PAGES}"
+                )
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"PDF has too many pages ({pages}). Maximum allowed is {MAX_PDF_PAGES} pages.",
+                )
+            if len(extracted_text) > MAX_PDF_CHARS:
+                print(
+                    "[documents] Rejecting because PDF character limit failed: "
+                    f"chars={len(extracted_text)}, max={MAX_PDF_CHARS}"
+                )
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"PDF text content is too large ({len(extracted_text)} characters). "
+                        f"Maximum allowed is {MAX_PDF_CHARS} characters."
+                    ),
+                )
+        else:
+            # file_type == "image"
+            print(f"[documents] Running OCR on image (type='{storage_content_type}')...")
+            try:
+                parsed = parse_image(file_bytes)
+            except ValueError as exc:
+                print(f"[documents] Rejecting because image parser validation failed: {exc}")
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+            except Exception as exc:
+                print(f"[documents] Unexpected image OCR failure: {exc}")
+                raise HTTPException(
+                    status_code=500,
+                    detail="Image OCR failed unexpectedly. Please try again with a different image.",
+                ) from exc
+
+            extracted_text = parsed["text"]
+            is_large       = parsed["is_large"]
+            pages          = parsed["pages"]
 
         print(
-            f"[documents] Parsed — pages={pages}, chars={len(extracted_text)}, "
-            f"is_large={is_large}, title='{title}'"
+            f"[documents] Parsed — file_type={file_type}, pages={pages}, "
+            f"chars={len(extracted_text)}, is_large={is_large}, title='{title}'"
         )
 
         # ── 4. Upload original PDF to Supabase Storage ────────────────────────────
@@ -227,11 +345,11 @@ async def upload_document(
             client.storage.from_(STORAGE_BUCKET).upload(
                 path=storage_path,
                 file=file_bytes,
-                file_options={"content-type": "application/pdf", "upsert": "true"},
+                file_options={"content-type": storage_content_type, "upsert": "true"},
             )
             # Build a public URL/reference for the stored file
             file_url: str = client.storage.from_(STORAGE_BUCKET).get_public_url(storage_path)
-            print(f"[documents] PDF uploaded — public URL: {file_url}")
+            print(f"[documents] File uploaded — public URL: {file_url}")
         except Exception as exc:
             print(f"[documents] Storage upload failed: {exc}")
             raise HTTPException(
@@ -332,4 +450,3 @@ async def list_documents(
         ) from exc
 
     return {"documents": docs}
-
