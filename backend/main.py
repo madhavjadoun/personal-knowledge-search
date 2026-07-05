@@ -20,12 +20,34 @@ from routers import documents, quiz, credits
 # ── Load environment variables from .env ──────────────────────────────────────
 load_dotenv()
 
+is_prod = os.getenv("APP_ENV", "production").lower() == "production"
+
+# ── Validate Environment Variables in Production ──────────────────────────────
+if is_prod:
+    missing_vars = []
+    supabase_url = os.getenv("SUPABASE_URL", "").strip()
+    supabase_key = os.getenv("SUPABASE_SERVICE_KEY", "").strip()
+    if not supabase_url or "supabase.co" not in supabase_url:
+        missing_vars.append("SUPABASE_URL")
+    if not supabase_key or len(supabase_key) < 50:
+        missing_vars.append("SUPABASE_SERVICE_KEY")
+    
+    # Need at least one valid Gemini API Key
+    gemini_keys = [os.getenv(f"GEMINI_KEY_{i}", "").strip() for i in range(1, 6)]
+    valid_keys = [k for k in gemini_keys if k and k.lower() != "your_key_here"]
+    if not valid_keys:
+        missing_vars.append("GEMINI_KEY_1 (At least one valid GEMINI_KEY is required)")
+        
+    if missing_vars:
+        raise EnvironmentError(
+            f"Production environment validation failed. Missing or invalid variables: {', '.join(missing_vars)}"
+        )
+
 # ── Logging setup ─────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("api_security")
 
 # ── Application factory (Production Hardened) ──────────────────────────────────
-is_prod = os.getenv("APP_ENV", "production").lower() == "production"
 
 app = FastAPI(
     title="PDF Quiz Generator API",

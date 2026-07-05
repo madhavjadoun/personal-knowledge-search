@@ -235,14 +235,21 @@ def parse_image(file_bytes: bytes) -> dict:
     finally:
         img.close()
 
-    # ── Step 4: Validate non-empty result ─────────────────────────────────────
+    # ── Step 4: Validate that result contains meaningful text ─────────────────
     text = text.strip()
     print(f"[pdf_parser] parse_image: OCR complete — {len(text)} chars extracted.")
 
-    if not text:
+    # Count only alphabetic characters (a-z). Personal photos produce OCR noise
+    # (dots, symbols, random digits) but very few actual letters. A real text
+    # document — even a single sentence — will have at least 20 letters.
+    import re as _re
+    letter_count = len(_re.sub(r"[^a-zA-Z]", "", text))
+    print(f"[pdf_parser] parse_image: meaningful letter count = {letter_count}")
+
+    if letter_count < 20:
         raise ValueError(
             "No readable text was detected in this image. "
-            "Please ensure the image contains clear, legible text and try again."
+            "Please ensure the image contains clear, legible printed text and try again."
         )
 
     is_large = len(text) > 3000

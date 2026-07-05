@@ -347,9 +347,9 @@ async def upload_document(
                 file=file_bytes,
                 file_options={"content-type": storage_content_type, "upsert": "true"},
             )
-            # Build a public URL/reference for the stored file
-            file_url: str = client.storage.from_(STORAGE_BUCKET).get_public_url(storage_path)
-            print(f"[documents] File uploaded — public URL: {file_url}")
+            # Store only the storage path for secure private bucket handling
+            file_url: str = storage_path
+            print(f"[documents] File uploaded — storage path: {file_url}")
         except Exception as exc:
             print(f"[documents] Storage upload failed: {exc}")
             raise HTTPException(
