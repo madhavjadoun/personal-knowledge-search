@@ -239,14 +239,13 @@ def parse_image(file_bytes: bytes) -> dict:
     text = text.strip()
     print(f"[pdf_parser] parse_image: OCR complete — {len(text)} chars extracted.")
 
-    # Count only alphabetic characters (a-z). Personal photos produce OCR noise
-    # (dots, symbols, random digits) but very few actual letters. A real text
-    # document — even a single sentence — will have at least 20 letters.
+    # Count alphanumeric characters (a-z, A-Z, 0-9) to check if the image
+    # contains any readable text.
     import re as _re
-    letter_count = len(_re.sub(r"[^a-zA-Z]", "", text))
-    print(f"[pdf_parser] parse_image: meaningful letter count = {letter_count}")
+    meaningful_chars = len(_re.sub(r"[^a-zA-Z0-9]", "", text))
+    print(f"[pdf_parser] parse_image: meaningful character count = {meaningful_chars}")
 
-    if letter_count < 20:
+    if meaningful_chars < 1:
         raise ValueError(
             "No readable text was detected in this image. "
             "Please ensure the image contains clear, legible printed text and try again."
