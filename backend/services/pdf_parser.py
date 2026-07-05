@@ -230,34 +230,75 @@ def parse_image(file_bytes: bytes) -> dict:
     print("[pdf_parser] parse_image: running pytesseract OCR...")
     try:
         text = pytesseract.image_to_string(img, lang="eng")
+        from pytesseract import Output
+        data = pytesseract.image_to_data(img, lang="eng", output_type=Output.DICT)
     except Exception as exc:
         raise ValueError(f"OCR failed on image. Detail: {exc}") from exc
     finally:
         img.close()
 
     # ── Step 4: Validate that result contains meaningful text ─────────────────
-    text = text.strip()
-    print(f"[pdf_parser] parse_image: OCR complete — {len(text)} chars extracted.")
+    text_stripped = text.strip()
+    print(f"[pdf_parser] parse_image: OCR complete — {len(text_stripped)} chars extracted.")
 
-    # Count alphanumeric characters (a-z, A-Z, 0-9) to check if the image
-    # contains any readable text.
-    import re as _re
-    meaningful_chars = len(_re.sub(r"[^a-zA-Z0-9]", "", text))
-    print(f"[pdf_parser] parse_image: meaningful character count = {meaningful_chars}")
+    # 1. Verify average confidence (ignore -1 values)
+    confidences = []
+    for c in data.get("conf", []):
+        try:
+            val = float(c)
+            if val != -1:
+                confidences.append(val)
+        except (ValueError, TypeError):
+            pass
+    avg_conf = sum(confidences) / len(confidences) if confidences else 0.0
+    print(f"[pdf_parser] parse_image: average OCR confidence = {avg_conf:.2f}")
 
-    if meaningful_chars < 1:
+    if avg_conf < 50:
         raise ValueError(
-            "No readable text was detected in this image. "
+            "Low OCR confidence. Please ensure the image contains clear, legible printed text."
+        )
+
+    # 2. Count alphanumeric characters (require >= 20)
+    import re as _re
+    alphanumeric_text = _re.sub(r"[^a-zA-Z0-9]", "", text_stripped)
+    alphanumeric_count = len(alphanumeric_text)
+    print(f"[pdf_parser] parse_image: alphanumeric character count = {alphanumeric_count}")
+
+    if alphanumeric_count < 20:
+        raise ValueError(
+            "Too few alphanumeric characters detected in this image. "
             "Please ensure the image contains clear, legible printed text and try again."
         )
 
-    is_large = len(text) > 3000
+    # 3. Meaningful words count (require >= 5 tokens containing alphanumeric chars)
+    words = [w.strip() for w in text_stripped.split() if w.strip()]
+    meaningful_words = [w for w in words if _re.search(r"[a-zA-Z0-9]", w)]
+    meaningful_words_count = len(meaningful_words)
+    print(f"[pdf_parser] parse_image: meaningful words count = {meaningful_words_count}")
+
+    if meaningful_words_count < 5:
+        raise ValueError(
+            "Fewer than 5 meaningful words detected in this image. "
+            "Please ensure the image contains clear, legible printed text and try again."
+        )
+
+    # 4. Token length distribution (single-char tokens vs multi-char tokens)
+    single_char_tokens = [w for w in meaningful_words if len(w) <= 1]
+    multi_char_tokens = [w for w in meaningful_words if len(w) > 1]
+    print(f"[pdf_parser] parse_image: single-char tokens = {len(single_char_tokens)}, multi-char tokens = {len(multi_char_tokens)}")
+
+    if len(single_char_tokens) >= len(multi_char_tokens):
+        raise ValueError(
+            "The image content does not resemble readable printed text (mostly single characters or noise detected)."
+        )
+
+    is_large = len(text_stripped) > 3000
     print(
-        f"[pdf_parser] parse_image: Done — chars={len(text)}, is_large={is_large}"
+        f"[pdf_parser] parse_image: Done — chars={len(text_stripped)}, is_large={is_large}"
     )
 
     return {
-        "text":     text,
+        "text":     text_stripped,
         "is_large": is_large,
         "pages":    1,
     }
