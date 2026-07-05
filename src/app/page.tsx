@@ -9,7 +9,6 @@ import dynamic from "next/dynamic";
 import uploadAnimation from "../../public/upload.json";
 import OrbitLoader from "@/components/app/OrbitLoader";
 import NavbarLogo from "@/components/layout/NavbarLogo";
-import ShinyText from "@/components/ui/ShinyText";
 import LogoSVG from "@/components/layout/LogoSVG";
 
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
@@ -35,25 +34,6 @@ const letterVariants = {
     opacity: 0,
     filter: "blur(8px)"
   }
-};
-
-const pulseVariant: any = {
-  animate: (customDelay: number) => ({
-    scale: [1, 1.15, 1],
-    borderColor: ["var(--border)", "var(--indigo-accent)", "var(--border)"],
-    color: ["var(--text-3)", "var(--indigo-accent)", "var(--text-3)"],
-    boxShadow: [
-      "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-      "0 0 10px rgba(45, 212, 191, 0.25)",
-      "0 1px 2px 0 rgba(0, 0, 0, 0.05)"
-    ],
-    transition: {
-      duration: 1.8,
-      repeat: Infinity,
-      ease: "easeInOut",
-      delay: customDelay
-    }
-  })
 };
 
 const EXAMPLE_QUESTIONS = [
@@ -111,12 +91,70 @@ export default function WelcomePage() {
   const [dragging, setDragging] = useState(false);
   const [dropped, setDropped] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
-  const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
+  const [toast, setToast] = useState<{
+    type: "error" | "success" | "warning";
+    title: string;
+    subtitle?: string;
+    action?: string;
+  } | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  const showToast = (message: string, type: "error" | "success" = "success") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+  const showToast = (
+    title: string,
+    type: "error" | "success" | "warning" = "success",
+    subtitle?: string,
+    action?: string,
+  ) => {
+    setToast({ title, type, subtitle, action });
+    setTimeout(() => setToast(null), type === "error" ? 6000 : 4000);
+  };
+
+  /**
+   * Maps raw backend error strings to human-friendly toast payloads.
+   */
+  const parseUploadError = (raw: string): { title: string; subtitle: string; action?: string } => {
+    const msg = raw.toLowerCase();
+    if (msg.includes("no readable text") || msg.includes("ocr failed") || msg.includes("no text")) {
+      return {
+        title: "Couldn't read the image",
+        subtitle: "No readable text was detected. Try uploading a clearer image with visible printed text.",
+        action: "Choose Another Image",
+      };
+    }
+    if (msg.includes("unsupported file type") || msg.includes("unsupported image type") || msg.includes("not a valid pdf")) {
+      return {
+        title: "Unsupported File",
+        subtitle: "Only PDF, PNG, JPG, JPEG and WEBP are supported.",
+      };
+    }
+    if (msg.includes("too large") || msg.includes("413") || msg.includes("payload too large")) {
+      return {
+        title: "File Too Large",
+        subtitle: "Maximum upload size is 25 MB. Please compress the file and try again.",
+      };
+    }
+    if (msg.includes("password") || msg.includes("encrypted")) {
+      return {
+        title: "Password-Protected File",
+        subtitle: "Please remove the password from this file before uploading.",
+      };
+    }
+    if (msg.includes("no pages") || msg.includes("empty")) {
+      return {
+        title: "Empty File",
+        subtitle: "The uploaded file appears to be empty or has no readable pages.",
+      };
+    }
+    if (msg.includes("rate limit") || msg.includes("too many")) {
+      return {
+        title: "Too Many Uploads",
+        subtitle: "You've hit the upload limit. Please wait a moment before trying again.",
+      };
+    }
+    return {
+      title: "Upload Failed",
+      subtitle: "Something went wrong while uploading. Please try again.",
+    };
   };
 
   // Rotating word
@@ -197,27 +235,14 @@ export default function WelcomePage() {
       formData.append("file", file);
       formData.append("user_id", user.id);
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+        (process.env.NODE_ENV === "production" 
+          ? "https://quizgenerator-production.up.railway.app" 
+          : "http://127.0.0.1:8000");
       const uploadUrl = `${apiUrl}/documents/upload`;
       const uploadHeaders = {
         "Authorization": `Bearer ${session.access_token}`,
       };
-
-      if (process.env.NODE_ENV !== "production") {
-        const formFile = formData.get("file");
-        console.log("[Upload] file.name:", file.name);
-        console.log("[Upload] file.type:", file.type);
-        console.log("[Upload] file.size:", file.size);
-        console.log("[Upload] FormData file:", formFile);
-        if (formFile instanceof File) {
-          console.log("[Upload] FormData filename:", formFile.name);
-          console.log("[Upload] FormData content type:", formFile.type);
-          console.log("[Upload] FormData size:", formFile.size);
-        }
-        console.log("[Upload] Request URL:", uploadUrl);
-        console.log("[Upload] Request headers:", uploadHeaders);
-        console.log("[Upload] Multipart Content-Type: browser-generated with boundary");
-      }
 
       const processResponse = await fetch(uploadUrl, {
         method: "POST",
@@ -237,17 +262,18 @@ export default function WelcomePage() {
         throw new Error(errMsg || `Document upload/processing failed with status: ${processResponse.status}`);
       }
 
-      if (process.env.NODE_ENV !== "production") {
-        try {
-          const responseData = await processResponse.json();
-          console.log("[Upload] Document upload and processing complete.", responseData);
-        } catch {
-          console.log("[Upload] Document upload and processing complete.");
-        }
-      }
-
       clearInterval(progressInterval);
       setProgress(100);
+
+      // ── Success feedback ──
+      const isImage = /\.(png|jpe?g|webp)$/i.test(file.name);
+      showToast(
+        "Upload Successful",
+        "success",
+        isImage
+          ? "Image indexed successfully. Ready for quiz generation."
+          : "Document indexed successfully. Ready for quiz generation.",
+      );
 
       setTimeout(() => { router.push("/dashboard"); }, 1500);
 
@@ -256,10 +282,11 @@ export default function WelcomePage() {
       console.error("[Upload] Final caught error:", err);
       setDropped(null);
       setProgress(0);
-      const errMsg = err && typeof err === "object" && "message" in err
+      const rawMsg = err && typeof err === "object" && "message" in err
         ? String((err as Record<string, unknown>).message)
         : String(err);
-      alert("Upload failed: " + errMsg);
+      const { title, subtitle, action } = parseUploadError(rawMsg);
+      showToast(title, "error", subtitle, action);
     }
   };
 
@@ -709,7 +736,7 @@ export default function WelcomePage() {
               </svg>
             </motion.div>
             <div className="space-y-1">
-              <h4 className="text-sm font-bold text-[var(--text-1)]">Upload PDF</h4>
+              <h4 className="text-sm font-bold text-[var(--text-1)]">Upload Learning Material</h4>
               <p className="text-[11px] text-[var(--text-3)] leading-relaxed">Supports searchable and scanned PDFs</p>
             </div>
           </motion.div>
@@ -992,8 +1019,92 @@ export default function WelcomePage() {
     
     {/* Toast Notification */}
     {toast && (
-      <div className="fixed bottom-5 right-5 z-50 flex items-center bg-[#151d2f] text-[#f8fafc] px-4 py-3 rounded-lg shadow-lg border border-[#24324a] animate-in fade-in slide-in-from-bottom-5 duration-200">
-        <span className="text-xs font-semibold">{toast.message}</span>
+      <div
+        role="alert"
+        aria-live="assertive"
+        className="fixed bottom-5 right-5 z-50 flex items-start gap-3 rounded-xl animate-in fade-in slide-in-from-bottom-4 duration-300 overflow-hidden sm:max-w-sm"
+        style={{
+          background: "var(--surface-2)",
+          border: "1px solid var(--border-strong)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10)",
+        }}
+      >
+        {/* Left accent stripe */}
+        <span
+          className="absolute left-0 top-0 bottom-0 w-1 flex-shrink-0"
+          style={{
+            background:
+              toast.type === "success"
+                ? "#10b981"
+                : toast.type === "warning"
+                ? "#f59e0b"
+                : "#ef4444",
+          }}
+          aria-hidden="true"
+        />
+
+        {/* Pad content away from stripe */}
+        <div className="flex items-start gap-3 pl-5 pr-4 py-4 w-full">
+          {/* Icon */}
+          <span className="mt-0.5 flex-shrink-0">
+            {toast.type === "success" && (
+              <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="#10b981" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            )}
+            {toast.type === "warning" && (
+              <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="#f59e0b" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            )}
+            {toast.type === "error" && (
+              <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="#ef4444" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+            )}
+          </span>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <p
+              className="text-sm font-semibold leading-tight"
+              style={{ color: "var(--text-1)" }}
+            >
+              {toast.title}
+            </p>
+            {toast.subtitle && (
+              <p
+                className="text-xs mt-1 leading-snug"
+                style={{ color: "var(--text-2)" }}
+              >
+                {toast.subtitle}
+              </p>
+            )}
+            {toast.action && (
+              <button
+                onClick={() => { setToast(null); fileRef.current?.click(); }}
+                className="mt-2 text-xs font-semibold underline-offset-2 hover:underline focus:outline-none cursor-pointer transition-colors"
+                style={{ color: "var(--indigo-accent)" }}
+              >
+                {toast.action}
+              </button>
+            )}
+          </div>
+
+          {/* Dismiss */}
+          <button
+            onClick={() => setToast(null)}
+            className="flex-shrink-0 transition-colors cursor-pointer rounded p-0.5 -mr-0.5"
+            style={{ color: "var(--text-3)" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "var(--text-1)")}
+            onMouseLeave={e => (e.currentTarget.style.color = "var(--text-3)")}
+            aria-label="Dismiss notification"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
     )}
 

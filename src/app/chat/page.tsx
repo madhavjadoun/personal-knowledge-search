@@ -3,7 +3,17 @@
 import { useState, useEffect } from "react";
 import AppShell from "@/components/app/AppShell";
 import { supabase } from "@/lib/supabase";
-import OrbitLoader from "@/components/app/OrbitLoader";
+
+interface DBQuestion {
+  order_index: number;
+  question: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  correct_option: string;
+  explanation: string;
+}
 
 interface MCQQuestion {
   question: string;
@@ -46,14 +56,12 @@ function getDocumentDisplayName(doc?: DocumentItem) {
 export default function QuizPage() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [selectedDocId, setSelectedDocId] = useState<string>("");
-  const [loadingDocs, setLoadingDocs] = useState(true);
   const [generatingQuiz, setGeneratingQuiz] = useState(false);
   const [questions, setQuestions] = useState<MCQQuestion[]>([]);
   const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string>("");
   const [numQuestions, setNumQuestions] = useState<number>(10);
   const [docValidationError, setDocValidationError] = useState(false);
   const [mcqValidationError, setMcqValidationError] = useState(false);
@@ -82,7 +90,10 @@ export default function QuizPage() {
   };
 
   const apiUrl = (() => {
-    let url = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+    let url = process.env.NEXT_PUBLIC_API_URL || 
+      (process.env.NODE_ENV === "production" 
+        ? "https://quizgenerator-production.up.railway.app" 
+        : "http://127.0.0.1:8000");
     if (url.includes("localhost")) {
       url = url.replace("localhost", "127.0.0.1");
     }
@@ -93,10 +104,8 @@ export default function QuizPage() {
   useEffect(() => {
     async function fetchDocs() {
       try {
-        setLoadingDocs(true);
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-        setUserId(user.id);
 
         const { data: dbDocs, error } = await supabase
           .from("documents")
@@ -140,13 +149,11 @@ export default function QuizPage() {
       } catch (err) {
         console.error("Failed to load documents:", err);
         setErrorMsg("Failed to load documents. Please check your connection.");
-      } finally {
-        setLoadingDocs(false);
       }
     }
 
     fetchDocs();
-  }, []);
+  }, [apiUrl]);
 
   // Load default settings (MCQ count)
   useEffect(() => {
@@ -192,8 +199,8 @@ export default function QuizPage() {
 
           const quizData = await res.json();
 
-          const dbQuestions = (quizData.quiz_questions || []).sort((a: any, b: any) => a.order_index - b.order_index);
-          const mappedQuestions = dbQuestions.map((q: any) => ({
+          const dbQuestions = (quizData.quiz_questions || []).sort((a: DBQuestion, b: DBQuestion) => a.order_index - b.order_index);
+          const mappedQuestions = dbQuestions.map((q: DBQuestion) => ({
             question: q.question,
             options: [q.option_a, q.option_b, q.option_c, q.option_d],
             correctAnswer: q.correct_option === "A" ? q.option_a : q.correct_option === "B" ? q.option_b : q.correct_option === "C" ? q.option_c : q.option_d,
@@ -229,7 +236,7 @@ export default function QuizPage() {
       }
     }
     loadQuizFromUrl();
-  }, [documents]);
+  }, [documents, apiUrl]);
 
   // Trigger quiz generation from selected PDF
   const handleGenerateQuiz = async () => {
@@ -306,7 +313,7 @@ export default function QuizPage() {
                 setCreditsInfo({ used: credData.credits_used, limit: credData.credits_limit, remaining: credData.credits_remaining, resetAt: credData.reset_at });
               }
             }
-          } catch (_) {/* silent */}
+          } catch {/* silent */}
         }
         setIsCreditsError(true);
         setShowLimitModal(true);

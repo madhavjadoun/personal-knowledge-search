@@ -47,7 +47,7 @@ export default function TermsPage() {
         <div className="space-y-3 pt-2">
           <h3 className="text-base font-bold text-[var(--text-1)]">Limitation of Liability</h3>
           <p className="font-medium">
-            QuizGenerator is a student project and is provided "as is" without warranties of any kind.
+            QuizGenerator is a student project and is provided &quot;as is&quot; without warranties of any kind.
           </p>
         </div>
 

@@ -55,14 +55,76 @@ export default function DocumentsPage() {
   const [progress, setProgress] = useState(0);
   const [userId, setUserId] = useState<string>("");
   const [docToDelete, setDocToDelete] = useState<SupabaseDoc | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
+  const [toast, setToast] = useState<{
+    type: "error" | "success" | "warning";
+    title: string;
+    subtitle?: string;
+    action?: string;
+  } | null>(null);
 
-  const showToast = (message: string, type: "error" | "success" = "success") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+  const showToast = (
+    title: string,
+    type: "error" | "success" | "warning" = "success",
+    subtitle?: string,
+    action?: string,
+  ) => {
+    setToast({ title, type, subtitle, action });
+    setTimeout(() => setToast(null), type === "error" ? 6000 : 4000);
+  };
+
+  /**
+   * Maps raw backend error strings to human-friendly toast payloads.
+   */
+  const parseUploadError = (raw: string): { title: string; subtitle: string; action?: string } => {
+    const msg = raw.toLowerCase();
+    if (msg.includes("no readable text") || msg.includes("ocr failed") || msg.includes("no text")) {
+      return {
+        title: "Couldn't read the image",
+        subtitle: "No readable text was detected. Try uploading a clearer image with visible printed text.",
+        action: "Choose Another Image",
+      };
+    }
+    if (msg.includes("unsupported file type") || msg.includes("unsupported image type") || msg.includes("not a valid pdf")) {
+      return {
+        title: "Unsupported File",
+        subtitle: "Only PDF, PNG, JPG, JPEG and WEBP are supported.",
+      };
+    }
+    if (msg.includes("too large") || msg.includes("413") || msg.includes("payload too large")) {
+      return {
+        title: "File Too Large",
+        subtitle: "Maximum upload size is 25 MB. Please compress the file and try again.",
+      };
+    }
+    if (msg.includes("password") || msg.includes("encrypted")) {
+      return {
+        title: "Password-Protected File",
+        subtitle: "Please remove the password from this file before uploading.",
+      };
+    }
+    if (msg.includes("no pages") || msg.includes("empty")) {
+      return {
+        title: "Empty File",
+        subtitle: "The uploaded file appears to be empty or has no readable pages.",
+      };
+    }
+    if (msg.includes("rate limit") || msg.includes("too many")) {
+      return {
+        title: "Too Many Uploads",
+        subtitle: "You've hit the upload limit. Please wait a moment before trying again.",
+      };
+    }
+    return {
+      title: "Upload Failed",
+      subtitle: "Something went wrong while uploading. Please try again.",
+    };
   };
 
   const getStoragePath = (doc: SupabaseDoc): string => {
+    // If the file_url is already just the relative storage path (doesn't start with HTTP/HTTPS)
+    if (doc.file_url && !doc.file_url.startsWith("http://") && !doc.file_url.startsWith("https://")) {
+      return doc.file_url;
+    }
     const legacyMarker = `/${STORAGE_BUCKET}/`;
     const markerIndex = doc.file_url.indexOf(legacyMarker);
     if (markerIndex !== -1) {
@@ -117,7 +179,7 @@ export default function DocumentsPage() {
           if (signError || !data?.signedUrl) throw signError || new Error("No signed url");
           fileUrl = data.signedUrl;
         }
-      } catch (e) {
+      } catch {
         // Fallback: Try generating signed URL first, if fails fallback to public URL
         const { data, error: signError } = await supabase.storage
           .from(STORAGE_BUCKET)
@@ -202,10 +264,10 @@ export default function DocumentsPage() {
         clearInterval(progressInterval);
         setUploading(false);
         setProgress(0);
-        showToast("Authentication required. Please sign in to upload documents.", "error");
+        showToast("Session Expired", "error", "Please sign in again.");
         setTimeout(() => {
           window.location.href = "/login";
-        }, 2000);
+        }, 2500);
         return;
       }
 
@@ -213,27 +275,14 @@ export default function DocumentsPage() {
       formData.append("file", file);
       formData.append("user_id", authenticatedUserId);
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+        (process.env.NODE_ENV === "production" 
+          ? "https://quizgenerator-production.up.railway.app" 
+          : "http://127.0.0.1:8000");
       const uploadUrl = `${apiUrl}/documents/upload`;
       const uploadHeaders = {
         "Authorization": `Bearer ${token}`,
       };
-
-      if (process.env.NODE_ENV !== "production") {
-        const formFile = formData.get("file");
-        console.log("[Documents Upload] file.name:", file.name);
-        console.log("[Documents Upload] file.type:", file.type);
-        console.log("[Documents Upload] file.size:", file.size);
-        console.log("[Documents Upload] FormData file:", formFile);
-        if (formFile instanceof File) {
-          console.log("[Documents Upload] FormData filename:", formFile.name);
-          console.log("[Documents Upload] FormData content type:", formFile.type);
-          console.log("[Documents Upload] FormData size:", formFile.size);
-        }
-        console.log("[Documents Upload] Request URL:", uploadUrl);
-        console.log("[Documents Upload] Request headers:", uploadHeaders);
-        console.log("[Documents Upload] Multipart Content-Type: browser-generated with boundary");
-      }
 
       const processResponse = await fetch(uploadUrl, {
         method: "POST",
@@ -253,21 +302,28 @@ export default function DocumentsPage() {
         throw new Error(errMsg || `Document upload/processing failed with status: ${processResponse.status}`);
       }
 
-      const responseData = await processResponse.json();
-      if (process.env.NODE_ENV !== "production") {
-        console.log("[Documents Upload] Document upload and processing complete. Response:", responseData);
-      }
-
       clearInterval(progressInterval);
       setProgress(100);
       await fetchDocs();
+
+      // ── Success feedback ──
+      const isImage = /\.(png|jpe?g|webp)$/i.test(file.name);
+      showToast(
+        "Upload Successful",
+        "success",
+        isImage
+          ? "Image indexed successfully. Ready for quiz generation."
+          : "Document indexed successfully. Ready for quiz generation.",
+      );
+
       setTimeout(() => { setUploading(false); setProgress(0); }, 1000);
 
     } catch (err) {
       clearInterval(progressInterval);
       console.error("Upload failed:", err);
-      const errMsg = err && typeof err === "object" && "message" in err ? String((err as Record<string, unknown>).message) : String(err);
-      alert("Upload failed: " + errMsg);
+      const rawMsg = err && typeof err === "object" && "message" in err ? String((err as Record<string, unknown>).message) : String(err);
+      const { title, subtitle, action } = parseUploadError(rawMsg);
+      showToast(title, "error", subtitle, action);
       setUploading(false);
       setProgress(0);
     } finally {
@@ -580,8 +636,92 @@ export default function DocumentsPage() {
 
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-5 sm:max-w-sm z-50 flex items-center bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-4 py-3 rounded-lg shadow-lg border border-zinc-800 dark:border-slate-200 animate-in fade-in slide-in-from-bottom-5 duration-200">
-          <span className="text-xs font-semibold break-words">{toast.message}</span>
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-5 sm:max-w-sm z-50 flex items-start gap-3 rounded-xl animate-in fade-in slide-in-from-bottom-4 duration-300 overflow-hidden"
+          style={{
+            background: "var(--surface-2)",
+            border: "1px solid var(--border-strong)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10)",
+          }}
+        >
+          {/* Left accent stripe */}
+          <span
+            className="absolute left-0 top-0 bottom-0 w-1 flex-shrink-0"
+            style={{
+              background:
+                toast.type === "success"
+                  ? "#10b981"
+                  : toast.type === "warning"
+                  ? "#f59e0b"
+                  : "#ef4444",
+            }}
+            aria-hidden="true"
+          />
+
+          {/* Pad content away from stripe */}
+          <div className="flex items-start gap-3 pl-5 pr-4 py-4 w-full">
+            {/* Icon */}
+            <span className="mt-0.5 flex-shrink-0">
+              {toast.type === "success" && (
+                <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="#10b981" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              )}
+              {toast.type === "warning" && (
+                <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="#f59e0b" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              )}
+              {toast.type === "error" && (
+                <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="#ef4444" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                </svg>
+              )}
+            </span>
+
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <p
+                className="text-sm font-semibold leading-tight"
+                style={{ color: "var(--text-1)" }}
+              >
+                {toast.title}
+              </p>
+              {toast.subtitle && (
+                <p
+                  className="text-xs mt-1 leading-snug"
+                  style={{ color: "var(--text-2)" }}
+                >
+                  {toast.subtitle}
+                </p>
+              )}
+              {toast.action && (
+                <button
+                  onClick={() => { setToast(null); fileInputRef.current?.click(); }}
+                  className="mt-2 text-xs font-semibold underline-offset-2 hover:underline focus:outline-none cursor-pointer transition-colors"
+                  style={{ color: "var(--indigo-accent)" }}
+                >
+                  {toast.action}
+                </button>
+              )}
+            </div>
+
+            {/* Dismiss */}
+            <button
+              onClick={() => setToast(null)}
+              className="flex-shrink-0 transition-colors cursor-pointer rounded p-0.5 -mr-0.5"
+              style={{ color: "var(--text-3)" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "var(--text-1)")}
+              onMouseLeave={e => (e.currentTarget.style.color = "var(--text-3)")}
+              aria-label="Dismiss notification"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
     </AppShell>

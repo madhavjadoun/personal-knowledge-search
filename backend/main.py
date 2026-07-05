@@ -114,6 +114,7 @@ def _allowed_origins() -> list[str]:
         "http://127.0.0.1:3000",
         "http://127.0.0.1:3001",
         "http://127.0.0.1:3002",
+        "https://quizgens.tech",
     ]
     configured = [
         origin.strip()
@@ -130,6 +131,7 @@ def _allowed_origins() -> list[str]:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins(),
+    allow_origin_regex=r"https://.*\.up\.railway\.app",
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "Accept", "Origin"],

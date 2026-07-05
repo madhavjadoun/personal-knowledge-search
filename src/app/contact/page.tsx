@@ -7,7 +7,7 @@ export default function ContactPage() {
     <AppShell title="Contact" subtitle="Have questions, suggestions, or found a bug?" publicPage={true} noSidebar={true}>
       <div className="max-w-2xl mx-auto glass-card rounded-2xl p-5 sm:p-8 space-y-6 text-sm text-[var(--text-2)] leading-relaxed min-w-0 overflow-hidden">
         <p className="font-semibold text-base text-[var(--text-1)]">
-          I'd love to hear from you.
+          I&apos;d love to hear from you.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
@@ -43,7 +43,7 @@ export default function ContactPage() {
         <div className="space-y-2 pt-4 border-t border-[var(--border)]">
           <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-4)]">Project Purpose</h4>
           <p className="text-xs font-semibold text-[var(--text-3)]">
-            QuizGenerator is an AI-powered educational platform that converts PDF documents into interactive practice quizzes using OCR and Google's Gemini AI.
+            QuizGenerator is an AI-powered educational platform that converts PDF documents into interactive practice quizzes using OCR and Google&apos;s Gemini AI.
           </p>
         </div>
       </div>

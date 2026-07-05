@@ -45,7 +45,7 @@ export default function PrivacyPage() {
         <div className="space-y-3 pt-2">
           <h3 className="text-base font-bold text-[var(--text-1)]">AI Processing</h3>
           <p className="font-medium">
-            Uploaded documents may be processed by Google's Gemini API only for generating quiz questions. Documents are not used to train public AI models through this application.
+            Uploaded documents may be processed by Google&apos;s Gemini API only for generating quiz questions. Documents are not used to train public AI models through this application.
           </p>
         </div>
 

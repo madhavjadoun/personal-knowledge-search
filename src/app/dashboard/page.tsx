@@ -6,6 +6,14 @@ import AppShell from "@/components/app/AppShell";
 import { supabase } from "@/lib/supabase";
 import OrbitLoader from "@/components/app/OrbitLoader";
 
+interface DBQuiz {
+  id: string;
+  document_id: string;
+  created_at: string;
+  total_questions: number;
+  status: string;
+}
+
 interface StatItem {
   label: string;
   value: string;
@@ -124,7 +132,10 @@ export default function DashboardPage() {
           const { data: { session } } = await supabase.auth.getSession();
           const token = session?.access_token;
           if (token) {
-            let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+            let apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+              (process.env.NODE_ENV === "production" 
+                ? "https://quizgenerator-production.up.railway.app" 
+                : "http://127.0.0.1:8000");
             if (apiUrl.includes("localhost")) apiUrl = apiUrl.replace("localhost", "127.0.0.1");
             const credRes = await fetch(`${apiUrl}/credits/status`, {
               headers: { "Authorization": `Bearer ${token}` },
@@ -152,11 +163,7 @@ export default function DashboardPage() {
         setHasDocs(documents.length > 0);
 
         // 2. Fetch user's quizzes and calculate stats
-        let quizzesCount = 0;
-        let questionsSolved = 0;
-        let totalAccuracy = 0;
-        let completedQuizzesCount = 0;
-        let recentCompletedQuizzes: any[] = [];
+        const recentCompletedQuizzes: { id: string; title: string; accuracy: number; created_at: string; docId: string }[] = [];
 
         // Daily activity tracking
         const todayStart = new Date();
@@ -169,17 +176,19 @@ export default function DashboardPage() {
           const { data: { session } } = await supabase.auth.getSession();
           const token = session?.access_token;
           if (token) {
-            let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+            let apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+              (process.env.NODE_ENV === "production" 
+                ? "https://quizgenerator-production.up.railway.app" 
+                : "http://127.0.0.1:8000");
             if (apiUrl.includes("localhost")) apiUrl = apiUrl.replace("localhost", "127.0.0.1");
             const res = await fetch(`${apiUrl}/quiz/user-history`, {
               headers: { "Authorization": `Bearer ${token}` },
             });
             if (res.ok) {
               const quizData = await res.json();
-              const dbQuizzes = quizData.quizzes || [];
-              quizzesCount = dbQuizzes.length;
+              const dbQuizzes: DBQuiz[] = quizData.quizzes || [];
               
-              dbQuizzes.forEach((q: any) => {
+              dbQuizzes.forEach((q: DBQuiz) => {
                 // Track today's activity
                 const quizDate = new Date(q.created_at);
                 if (quizDate >= todayStart) {
@@ -191,9 +200,6 @@ export default function DashboardPage() {
                   try {
                     const attempt = JSON.parse(q.status);
                     if (attempt && attempt.completed) {
-                      completedQuizzesCount++;
-                      questionsSolved += (attempt.correct || 0);
-                      totalAccuracy += (attempt.accuracy || 0);
                       recentCompletedQuizzes.push({
                         id: q.id,
                         title: attempt.title,
@@ -202,7 +208,7 @@ export default function DashboardPage() {
                         docId: q.document_id
                       });
                     }
-                  } catch (e) {
+                  } catch {
                     // Ignore status parse errors
                   }
                 }
@@ -221,7 +227,6 @@ export default function DashboardPage() {
           console.warn("Failed to fetch user history in dashboard:", historyErr);
         }
         
-        const avgAccuracy = completedQuizzesCount > 0 ? Math.round(totalAccuracy / completedQuizzesCount) : 0;
         const creditsProgress = (creditsRemaining / creditsLimit) * 100;
 
         // 3. Perform calculations

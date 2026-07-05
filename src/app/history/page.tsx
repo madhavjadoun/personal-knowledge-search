@@ -6,7 +6,7 @@ import Link from "next/link";
 import AppShell from "@/components/app/AppShell";
 import { supabase } from "@/lib/supabase";
 import OrbitLoader from "@/components/app/OrbitLoader";
-import { CheckCircle2, Target, Brain, Download as DownloadIcon, BookOpen, FileText } from "lucide-react";
+import { CheckCircle2, Download as DownloadIcon, BookOpen, FileText } from "lucide-react";
 
 interface QuizAttempt {
   completed: boolean;
@@ -45,7 +45,11 @@ export default function HistoryPage() {
   const [docMap, setDocMap] = useState<Record<string, string>>({});
   const [quizToDelete, setQuizToDelete] = useState<DBQuiz | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
+  const [toast, setToast] = useState<{
+    type: "error" | "success" | "warning";
+    title: string;
+    subtitle?: string;
+  } | null>(null);
   const [quizToDownload, setQuizToDownload] = useState<DBQuiz | null>(null);
   const [includeAnswers, setIncludeAnswers] = useState(true);
 
@@ -62,66 +66,67 @@ export default function HistoryPage() {
   }, [quizzes]);
 
   const showToast = (message: string, type: "error" | "success" = "success") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  const fetchHistory = async () => {
-    if (fetchedRef.current) return;
-    fetchedRef.current = true;
-    try {
-      setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) {
-        router.push("/login");
-        return;
-      }
-
-      // 1. Fetch user's documents to create doc ID-to-title mapping on frontend
-      const { data: docs, error: docsError } = await supabase
-        .from("documents")
-        .select("id, title, file_name");
-
-      if (docsError) throw docsError;
-
-      const mapping: Record<string, string> = {};
-      (docs || []).forEach(d => {
-        mapping[d.id] = d.title || d.file_name || "Untitled Document";
-      });
-      setDocMap(mapping);
-
-      // 2. Fetch quizzes associated with user's documents via secure backend API
-      let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-      if (apiUrl.includes("localhost")) {
-        apiUrl = apiUrl.replace("localhost", "127.0.0.1");
-      }
-      console.log("Debugging fetchHistory — apiUrl:", apiUrl);
-      console.log("Debugging fetchHistory — token exists:", !!token, "length:", token?.length);
-      const res = await fetch(`${apiUrl}/quiz/user-history`, {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.detail || "Server failed to fetch quiz history.");
-      }
-
-      const quizData = await res.json();
-      setQuizzes(quizData.quizzes || []);
-    } catch (err) {
-      console.error("Failed to load history:", err);
-      showToast("Error loading quiz history.", "error");
-    } finally {
-      setLoading(false);
-    }
+    setToast({ title: message, type });
+    setTimeout(() => setToast(null), type === "error" ? 5000 : 3500);
   };
 
   useEffect(() => {
+    const fetchHistory = async () => {
+      if (fetchedRef.current) return;
+      fetchedRef.current = true;
+      try {
+        setLoading(true);
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) {
+          router.push("/login");
+          return;
+        }
+
+        // 1. Fetch user's documents to create doc ID-to-title mapping on frontend
+        const { data: docs, error: docsError } = await supabase
+          .from("documents")
+          .select("id, title, file_name");
+
+        if (docsError) throw docsError;
+
+        const mapping: Record<string, string> = {};
+        (docs || []).forEach(d => {
+          mapping[d.id] = d.title || d.file_name || "Untitled Document";
+        });
+        setDocMap(mapping);
+
+        // 2. Fetch quizzes associated with user's documents via secure backend API
+        let apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+          (process.env.NODE_ENV === "production" 
+            ? "https://quizgenerator-production.up.railway.app" 
+            : "http://127.0.0.1:8000");
+        if (apiUrl.includes("localhost")) {
+          apiUrl = apiUrl.replace("localhost", "127.0.0.1");
+        }
+        const res = await fetch(`${apiUrl}/quiz/user-history`, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.detail || "Server failed to fetch quiz history.");
+        }
+
+        const quizData = await res.json();
+        setQuizzes(quizData.quizzes || []);
+      } catch (err) {
+        console.error("Failed to load history:", err);
+        showToast("Error loading quiz history.", "error");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchHistory();
-  }, []);
+  }, [router]);
 
   const parseAttempt = (status: string, fallbackTitle: string): QuizAttempt => {
     if (status && status !== "generated") {
@@ -139,7 +144,7 @@ export default function HistoryPage() {
             user_answers: attempt.user_answers || {}
           };
         }
-      } catch (e) {
+      } catch {
         // status is just a plain string
       }
     }
@@ -224,7 +229,10 @@ export default function HistoryPage() {
       const token = session?.access_token;
       if (!token) throw new Error("No token");
 
-      let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      let apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+        (process.env.NODE_ENV === "production" 
+          ? "https://quizgenerator-production.up.railway.app" 
+          : "http://127.0.0.1:8000");
       if (apiUrl.includes("localhost")) {
         apiUrl = apiUrl.replace("localhost", "127.0.0.1");
       }
@@ -262,7 +270,10 @@ export default function HistoryPage() {
       const token = session?.access_token;
       if (!token) throw new Error("No token");
 
-      let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      let apiUrl = process.env.NEXT_PUBLIC_API_URL || 
+        (process.env.NODE_ENV === "production" 
+          ? "https://quizgenerator-production.up.railway.app" 
+          : "http://127.0.0.1:8000");
       if (apiUrl.includes("localhost")) {
         apiUrl = apiUrl.replace("localhost", "127.0.0.1");
       }
@@ -295,10 +306,6 @@ export default function HistoryPage() {
     return attempt.completed;
   });
   const completedCount = completedQuizzes.length;
-  const avgAccuracy = completedCount > 0
-    ? Math.round(completedQuizzes.reduce((acc, q) => acc + parseAttempt(q.status, "").accuracy, 0) / completedCount)
-    : 0;
-  const questionsSolved = completedQuizzes.reduce((acc, q) => acc + parseAttempt(q.status, "").correct, 0);
 
   return (
     <AppShell title="Quiz History" subtitle="Review your past AI quiz attempts and performance.">
@@ -533,26 +540,24 @@ export default function HistoryPage() {
 
       {/* Delete Confirmation Modal */}
       {quizToDelete && (
-        <div className="fixed inset-0 bg-black/45 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
-          <div className="bg-[#121826] border border-[#24324a] rounded-xl max-w-[400px] w-full p-6 shadow-xl space-y-6 mx-4 animate-in zoom-in-95 duration-200">
-            <div className="space-y-2">
-              <h3 className="text-base font-bold text-[#f8fafc]">Delete Quiz Attempt</h3>
-              <p className="text-xs text-[#94a3b8] leading-relaxed font-medium">
-                Are you sure you want to delete this quiz history record? This action is permanent and cannot be undone.
-              </p>
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs">
+          <div className="glass-card rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border border-[var(--border)] animate-in fade-in zoom-in-95 duration-200 bg-[var(--surface-2)]">
+            <h3 className="text-base font-semibold text-[var(--text-1)] tracking-tight">Delete Quiz Attempt</h3>
+            <p className="text-sm font-normal text-[var(--text-3)] mt-2 leading-relaxed">
+              Are you sure you want to delete this quiz history record? This action is permanent and cannot be undone.
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 mt-5">
               <button
                 onClick={() => setQuizToDelete(null)}
                 disabled={deleting}
-                className="px-4 py-2 border border-[#24324a] hover:bg-[#151d2f] text-xs font-bold text-[#cbd5e1] rounded-lg transition-all cursor-pointer h-9 flex items-center"
+                className="px-4 py-2 text-xs font-semibold rounded-lg hover:bg-black/5 dark:hover:bg-white/5 border border-[var(--border)] transition-colors cursor-pointer text-[var(--text-2)]"
               >
                 Cancel
               </button>
               <button
                 onClick={triggerDeleteQuiz}
                 disabled={deleting}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer h-9"
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 {deleting && (
                   <svg className="animate-spin h-3 w-3 text-white" fill="none" viewBox="0 0 24 24">
@@ -569,26 +574,24 @@ export default function HistoryPage() {
 
       {/* Clear All Confirmation Modal */}
       {clearAllConfirm && (
-        <div className="fixed inset-0 bg-black/45 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
-          <div className="bg-[#121826] border border-[#24324a] rounded-xl max-w-[400px] w-full p-6 shadow-xl space-y-6 mx-4 animate-in zoom-in-95 duration-200">
-            <div className="space-y-2">
-              <h3 className="text-base font-bold text-[#f8fafc]">Clear Quiz History</h3>
-              <p className="text-xs text-[#94a3b8] leading-relaxed font-medium">
-                Are you sure you want to clear your entire quiz history? This will permanently delete all records, scores, and questions. This action is irreversible.
-              </p>
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs">
+          <div className="glass-card rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border border-[var(--border)] animate-in fade-in zoom-in-95 duration-200 bg-[var(--surface-2)]">
+            <h3 className="text-base font-semibold text-[var(--text-1)] tracking-tight">Clear Quiz History</h3>
+            <p className="text-sm font-normal text-[var(--text-3)] mt-2 leading-relaxed">
+              Are you sure you want to clear your entire quiz history? This will permanently delete all records, scores, and questions. This action is irreversible.
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 mt-5">
               <button
                 onClick={() => setClearAllConfirm(false)}
                 disabled={clearing}
-                className="px-4 py-2 border border-[#24324a] hover:bg-[#151d2f] text-xs font-bold text-[#cbd5e1] rounded-lg transition-all cursor-pointer h-9 flex items-center"
+                className="px-4 py-2 text-xs font-semibold rounded-lg hover:bg-black/5 dark:hover:bg-white/5 border border-[var(--border)] transition-colors cursor-pointer text-[var(--text-2)]"
               >
                 Cancel
               </button>
               <button
                 onClick={triggerClearAll}
                 disabled={clearing}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer h-9"
+                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 {clearing && (
                   <svg className="animate-spin h-3 w-3 text-white" fill="none" viewBox="0 0 24 24">
@@ -706,8 +709,54 @@ export default function HistoryPage() {
 
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-5 sm:max-w-sm z-50 flex items-center bg-[#151d2f] text-[#f8fafc] px-4 py-3 rounded-lg shadow-lg border border-[#24324a] animate-in fade-in slide-in-from-bottom-5 duration-200">
-          <span className="text-xs font-semibold break-words">{toast.message}</span>
+        <div
+          role="alert"
+          aria-live="assertive"
+          className={`fixed bottom-4 left-4 right-4 sm:left-auto sm:right-5 sm:max-w-sm z-50 flex items-start gap-3 px-4 py-3.5 rounded-xl shadow-2xl border animate-in fade-in slide-in-from-bottom-4 duration-300 ${
+            toast.type === "success"
+              ? "bg-zinc-900 border-emerald-500/50"
+              : toast.type === "warning"
+              ? "bg-zinc-900 border-amber-500/50"
+              : "bg-zinc-900 border-red-500/50"
+          }`}
+        >
+          {/* Icon */}
+          <span className="mt-0.5 flex-shrink-0">
+            {toast.type === "success" && (
+              <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            )}
+            {toast.type === "warning" && (
+              <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            )}
+            {toast.type === "error" && (
+              <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+            )}
+          </span>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-white leading-tight">{toast.title}</p>
+            {toast.subtitle && (
+              <p className="text-[11px] text-zinc-300 mt-0.5 leading-snug">{toast.subtitle}</p>
+            )}
+          </div>
+
+          {/* Dismiss */}
+          <button
+            onClick={() => setToast(null)}
+            className="flex-shrink-0 text-zinc-400 hover:text-zinc-200 transition-colors ml-1 cursor-pointer"
+            aria-label="Dismiss notification"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       )}
     </AppShell>

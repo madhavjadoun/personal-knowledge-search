@@ -97,21 +97,22 @@ export function downloadQuizReport(data: QuizReportData, withAnswers: boolean = 
 
   // Decorative circle accents
   setFill([255, 255, 255]);
-  doc.setGState(new (doc as any).GState({ opacity: 0.04 }));
+  const docWithGState = doc as unknown as { GState: new (options: { opacity: number }) => unknown };
+  doc.setGState(new docWithGState.GState({ opacity: 0.04 }));
   doc.circle(PW - 28, 10, 38, "F");
   doc.circle(ML + 8, 52, 22, "F");
-  doc.setGState(new (doc as any).GState({ opacity: 1.0 }));
+  doc.setGState(new docWithGState.GState({ opacity: 1.0 }));
 
   font("bold", 22);
   setColor(C.white);
   doc.text(withAnswers ? "Quiz Performance Report" : "Practice Quiz", ML, 24);
 
   font("normal", 9);
-  setColor([180, 185, 200] as any);
+  setColor([180, 185, 200] as [number, number, number]);
   doc.text(data.title, ML, 33);
 
   font("normal", 8);
-  setColor([150, 155, 170] as any);
+  setColor([150, 155, 170] as [number, number, number]);
   doc.text(`Source: ${data.docName}`, ML, 40);
   doc.text(withAnswers ? `Completed: ${data.dateStr}` : `Created: ${data.dateStr}`, ML, 47);
 
