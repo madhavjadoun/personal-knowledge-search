@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const isProd = process.env.NODE_ENV === "production";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isProd ? "https://quizgenerator-production.up.railway.app" : "");
+const backendApiUrl = process.env.BACKEND_API_URL || (isProd ? "https://quizgenerator-production.up.railway.app" : "http://127.0.0.1:8000");
 
 const connectSources = [
   "'self'",
@@ -12,9 +12,6 @@ const connectSources = [
 
 if (supabaseUrl) {
   connectSources.push(supabaseUrl);
-}
-if (apiUrl) {
-  connectSources.push(apiUrl);
 }
 if (!isProd) {
   connectSources.push("http://127.0.0.1:8000", "http://localhost:8000");
@@ -32,6 +29,14 @@ const nextConfig: NextConfig = {
       config.cache = false;
     }
     return config;
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/api/backend/:path*",
+        destination: `${backendApiUrl}/:path*`,
+      },
+    ];
   },
   async headers() {
     return [

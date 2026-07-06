@@ -89,6 +89,27 @@ export default function QuizPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
+  // Load cached credits on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("cached_credits_info");
+      if (cached) {
+        try {
+          setCreditsInfo(JSON.parse(cached));
+        } catch (e) {
+          console.warn("Failed to parse cached credits:", e);
+        }
+      }
+    }
+  }, []);
+
+  // Persist creditsInfo to localStorage whenever it updates
+  useEffect(() => {
+    if (creditsInfo) {
+      localStorage.setItem("cached_credits_info", JSON.stringify(creditsInfo));
+    }
+  }, [creditsInfo]);
+
   const apiUrl = (() => {
     let url = process.env.NEXT_PUBLIC_API_URL || 
       (process.env.NODE_ENV === "production" 
@@ -107,14 +128,43 @@ export default function QuizPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data: dbDocs, error } = await supabase
+        // Fetch documents promise
+        const fetchDocsPromise = supabase
           .from("documents")
           .select("id, title, file_name, file_size, created_at")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false });
 
-        if (error) throw error;
-        setDocuments(dbDocs || []);
+        // Fetch credits status promise
+        const fetchCreditsPromise = (async () => {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (token) {
+              const credRes = await fetch(`${apiUrl}/credits/status`, {
+                headers: { "Authorization": `Bearer ${token}` },
+                cache: "no-store",
+              });
+              if (credRes.ok) {
+                const credData = await credRes.json();
+                setCreditsInfo({
+                  used:      credData.credits_used,
+                  limit:     credData.credits_limit,
+                  remaining: credData.credits_remaining,
+                  resetAt:   credData.reset_at,
+                });
+              }
+            }
+          } catch (credErr) {
+            console.warn("Failed to fetch credit status:", credErr);
+          }
+        })();
+
+        // Await both parallel executions
+        const [docsResult] = await Promise.all([fetchDocsPromise, fetchCreditsPromise]);
+
+        if (docsResult.error) throw docsResult.error;
+        setDocuments(docsResult.data || []);
 
         // Check if docId query param exists to auto-select it
         if (typeof window !== "undefined") {
@@ -123,29 +173,6 @@ export default function QuizPage() {
           if (docIdParam) {
             setSelectedDocId(docIdParam);
           }
-        }
-
-        // Fetch daily credit balance
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          const token = session?.access_token;
-          if (token) {
-            const credRes = await fetch(`${apiUrl}/credits/status`, {
-              headers: { "Authorization": `Bearer ${token}` },
-              cache: "no-store",
-            });
-            if (credRes.ok) {
-              const credData = await credRes.json();
-              setCreditsInfo({
-                used:      credData.credits_used,
-                limit:     credData.credits_limit,
-                remaining: credData.credits_remaining,
-                resetAt:   credData.reset_at,
-              });
-            }
-          }
-        } catch (credErr) {
-          console.warn("Failed to fetch credit status:", credErr);
         }
       } catch (err) {
         console.error("Failed to load documents:", err);
