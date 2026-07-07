@@ -10,6 +10,7 @@ import OrbitLoader from "@/components/app/OrbitLoader";
 import NavbarLogo from "@/components/layout/NavbarLogo";
 import LogoSVG from "@/components/layout/LogoSVG";
 import Image from "next/image";
+import BlurText from "@/components/ui/BlurText";
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 
 /* ── Constants ─────────────────────────────────── */
@@ -20,6 +21,20 @@ const ROTATING_WORDS = [
   "master concepts.",
   "learn faster."
 ];
+
+const letterVariants = {
+  initial: { y: "100%", opacity: 0, filter: "blur(8px)" },
+  animate: {
+    y: "0%",
+    opacity: 1,
+    filter: "blur(0px)"
+  },
+  exit: {
+    y: "-120%",
+    opacity: 0,
+    filter: "blur(8px)"
+  }
+};
 
 
 
@@ -313,19 +328,50 @@ export default function WelcomePage() {
                 className="text-[30px] xs:text-[34px] sm:text-[48px] lg:text-[60px] font-bold leading-[1.0] text-[var(--text-1)] tracking-tight"
                 style={{ letterSpacing: "-0.03em" }}
               >
-                Turn any document <br className="hidden sm:inline" />
-                into an AI quiz to{" "}
+                <BlurText
+                  text="Turn any document"
+                  delay={40}
+                />{" "}
+                <br className="hidden sm:inline" />
+                <BlurText
+                  text="into an AI quiz to"
+                  delay={40}
+                  className="mr-2"
+                />
                 <span className="relative inline-block overflow-hidden h-[1.2em] whitespace-nowrap align-bottom text-[var(--indigo-accent)]">
-                  <AnimatePresence mode="wait">
+                  <AnimatePresence mode="popLayout">
                     <motion.span
                       key={wordIndex}
-                      initial={{ y: 12, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      exit={{ y: -12, opacity: 0 }}
-                      transition={{ duration: 0.25, ease: "easeInOut" }}
-                      className="inline-block"
+                      className="inline-block will-change-[transform,opacity,filter]"
+                      style={{ willChange: "transform, opacity, filter" }}
+                      initial="initial"
+                      animate="animate"
+                      exit="exit"
                     >
-                      {ROTATING_WORDS[wordIndex]}
+                      {ROTATING_WORDS[wordIndex].split("").map((char, index, arr) => {
+                        const delay = (arr.length - 1 - index) * 0.025;
+                        return (
+                          <motion.span
+                            key={index}
+                            variants={letterVariants}
+                            transition={{
+                              type: "spring",
+                              damping: 30,
+                              stiffness: 400,
+                              delay: delay
+                            }}
+                            className="inline-block will-change-[transform,opacity,filter]"
+                            style={{
+                              display: "inline-block",
+                              whiteSpace: "pre",
+                              color: "var(--indigo-accent)",
+                              willChange: "transform, opacity, filter"
+                            }}
+                          >
+                            {char}
+                          </motion.span>
+                        );
+                      })}
                     </motion.span>
                   </AnimatePresence>
                 </span>
@@ -333,23 +379,18 @@ export default function WelcomePage() {
 
               {/* Subheading */}
               <p className="text-[18px] lg:text-[20px] font-normal leading-[1.6] text-[var(--text-2)] mt-6 max-w-[640px]">
-                Upload searchable or scanned PDFs, lecture slides, and notes. Our OCR pipeline extracts the text, chunks the content, and generates interactive MCQ practice tests in seconds.
+                <BlurText
+                  text="Upload searchable or scanned PDFs, lecture slides, and notes. Our OCR pipeline extracts the text, chunks the content, and generates interactive MCQ practice tests in seconds."
+                  delay={45}
+                />
               </p>
 
             </div>
 
             {/* Why QuizGens Section */}
-            <motion.div
-              initial="hidden"
-              animate={isHeroInView ? "visible" : "hidden"}
-              variants={{
-                hidden: { opacity: 0, y: 10, transition: { duration: 0 } },
-                visible: { opacity: 1, y: 0, transition: { duration: 0.4, delay: 0.1 } }
-              }}
-              className="space-y-5 pt-8 border-t border-[var(--border)]"
-            >
+            <div className="space-y-5 pt-8 border-t border-[var(--border)]">
               <h3 className="text-lg font-semibold text-[var(--text-1)] tracking-tight">
-                Why QuizGens
+                <BlurText text="Why QuizGens" delay={40} />
               </h3>
               <ul className="space-y-3.5">
                 {[
@@ -363,12 +404,15 @@ export default function WelcomePage() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                     <span>
-                      <strong className="font-semibold text-[var(--text-1)]">{item.bold}</strong> {item.rest}
+                      <strong className="font-semibold text-[var(--text-1)] mr-1">
+                        <BlurText text={item.bold} delay={30} />
+                      </strong>{" "}
+                      <BlurText text={item.rest} delay={30} />
                     </span>
                   </li>
                 ))}
               </ul>
-            </motion.div>
+            </div>
 
           </div>
 
