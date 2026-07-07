@@ -398,15 +398,27 @@ export default function AppShell({ children, title, subtitle, action, publicPage
 
           {/* ── Page Hero Header ── */}
           <div className="mb-8">
-            <p className="text-page-eyebrow mb-1">
-              Workspace
-            </p>
-            <h2
-              className="text-2xl lg:text-3xl font-semibold tracking-tight"
-              style={{ color: "var(--text-1)", letterSpacing: "-0.03em", lineHeight: 1.1 }}
-            >
-              <BlurText text={title} delay={140} />
-            </h2>
+            {title === "Documents" ? (
+              <div className="flex flex-col gap-1">
+                <div className="text-xs font-semibold tracking-wider uppercase flex items-center mb-1">
+                  <span className="text-[#94A3B8]">Workspace</span>
+                  <span className="mx-1.5 text-[#94A3B8] font-normal">/</span>
+                  <span className="text-[#0F172A] dark:text-slate-100 font-bold">Documents</span>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="text-page-eyebrow mb-1">
+                  Workspace
+                </p>
+                <h2
+                  className="text-2xl lg:text-3xl font-semibold tracking-tight"
+                  style={{ color: "var(--text-1)", letterSpacing: "-0.03em", lineHeight: 1.1 }}
+                >
+                  <BlurText text={title} delay={140} />
+                </h2>
+              </>
+            )}
             {subtitle && (
               <p
                 className="text-sm lg:text-base mt-2 font-normal leading-relaxed text-description"

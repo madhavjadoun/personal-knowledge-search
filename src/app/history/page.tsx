@@ -7,6 +7,7 @@ import AppShell from "@/components/app/AppShell";
 import { supabase } from "@/lib/supabase";
 import OrbitLoader from "@/components/app/OrbitLoader";
 import { CheckCircle2, Download as DownloadIcon, BookOpen, FileText } from "lucide-react";
+import Image from "next/image";
 
 interface QuizAttempt {
   completed: boolean;
@@ -379,7 +380,7 @@ export default function HistoryPage() {
           </div>
         ) : quizzes.length === 0 ? (
           <div className="w-full max-w-[560px] mx-auto border border-dashed border-[var(--border)] bg-[var(--bg-2)]/30 rounded-[12px] py-12 px-6 flex flex-col items-center justify-center text-center animate-in fade-in duration-250 min-h-[250px]">
-            <span className="text-4xl mb-4">🎉</span>
+            <Image src="/empty-history.png" alt="No History" width={48} height={48} className="mb-4 object-contain dark:invert" />
             <h3 className="text-base font-semibold text-[var(--text-1)] tracking-tight">No quizzes yet</h3>
             <p className="text-xs font-normal text-[var(--text-3)] mt-1.5 max-w-[320px] leading-relaxed">
               Generate your first practice quiz to see your history and download performance reports here.

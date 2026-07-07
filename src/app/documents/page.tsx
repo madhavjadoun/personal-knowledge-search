@@ -16,20 +16,7 @@ interface SupabaseDoc {
 }
 
 
-/* Color config per extension */
-const EXT_STYLE: Record<string, { bg: string; color: string }> = {
-  PDF:  { bg: "rgba(239,68,68,0.08)",   color: "#DC2626" },
-  TXT:  { bg: "rgba(59,130,246,0.08)",  color: "#2563EB" },
-  SQL:  { bg: "rgba(16,185,129,0.08)",  color: "#059669" },
-  MD:   { bg: "rgba(124,58,237,0.08)",  color: "#7C3AED" },
-  JSON: { bg: "rgba(245,158,11,0.08)",  color: "#D97706" },
-  PY:   { bg: "rgba(6,182,212,0.08)",   color: "#0891B2" },
-  // Image types
-  PNG:  { bg: "rgba(20,184,166,0.08)",  color: "#0D9488" },
-  JPG:  { bg: "rgba(20,184,166,0.08)",  color: "#0D9488" },
-  JPEG: { bg: "rgba(20,184,166,0.08)",  color: "#0D9488" },
-  WEBP: { bg: "rgba(99,102,241,0.08)",  color: "#6366F1" },
-};
+
 
 /* Format bytes helper */
 function formatBytes(bytes: number, decimals = 1) {
@@ -441,7 +428,7 @@ export default function DocumentsPage() {
         )}
 
         {/* Documents Cards Grid wrapper */}
-        <div className="glass-card rounded-xl overflow-hidden">
+        <div className="border border-[#E5E7EB] dark:border-slate-800 bg-white dark:bg-[#151d2f] rounded-xl overflow-hidden">
           {/* Section header with compact statistics pills */}
           <div
             className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-4 sm:px-6 py-4 sm:py-5 border-b border-[var(--border)]"
@@ -457,17 +444,17 @@ export default function DocumentsPage() {
 
             {/* Statistics compact pills */}
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                <span>Documents:</span>
-                <span className="font-semibold font-mono tabular-nums">{docs.length}</span>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--bg-2)] border border-[var(--border)] text-[var(--text-3)]">
+                <span>Documents</span>
+                <span className="font-semibold font-mono tabular-nums text-[var(--text-1)]">{docs.length}</span>
               </div>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                <span>Storage:</span>
-                <span className="font-semibold font-mono tabular-nums">{formatBytes(totalStorage)}</span>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--bg-2)] border border-[var(--border)] text-[var(--text-3)]">
+                <span>Storage</span>
+                <span className="font-semibold font-mono tabular-nums text-[var(--text-1)]">{formatBytes(totalStorage, 0)}</span>
               </div>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                <span>Chunks:</span>
-                <span className="font-semibold font-mono tabular-nums">{docs.reduce((sum, doc) => sum + Math.max(1, Math.round(doc.file_size / 800)), 0)}</span>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--bg-2)] border border-[var(--border)] text-[var(--text-3)]">
+                <span>Chunks</span>
+                <span className="font-semibold font-mono tabular-nums text-[var(--text-1)]">{docs.reduce((sum, doc) => sum + Math.max(1, Math.round(doc.file_size / 800)), 0)}</span>
               </div>
             </div>
           </div>
@@ -511,7 +498,6 @@ export default function DocumentsPage() {
                 const displayName = getDocumentDisplayName(doc);
                 const lastDot = doc.file_name.lastIndexOf(".");
                 const ext = lastDot !== -1 ? doc.file_name.substring(lastDot + 1).toUpperCase() : "PDF";
-                const extStyle = EXT_STYLE[ext] ?? { bg: "var(--bg-2)", color: "var(--text-2)" };
                 const formattedDate = new Date(doc.created_at).toLocaleDateString("en-US", {
                   month: "short",
                   day: "numeric",
@@ -522,19 +508,14 @@ export default function DocumentsPage() {
                 return (
                   <div
                     key={doc.id}
-                    className="glass-card rounded-xl px-4 sm:px-6 py-4 flex flex-col justify-between lg:h-[148px] relative group hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-500/20 dark:hover:border-indigo-400/20 transition-all duration-300 min-w-0 overflow-hidden"
+                    className="bg-white dark:bg-[#151d2f] border border-[#E5E7EB] dark:border-slate-800 rounded-xl px-4 sm:px-6 py-4 flex flex-col justify-between lg:h-[148px] relative group hover:-translate-y-0.5 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-300 min-w-0 overflow-hidden"
                   >
                     {/* Top Row: Ext badge, Filename, Synced status */}
                     <div className="space-y-3 sm:space-y-4 min-w-0">
                       <div className="flex items-start sm:items-center justify-between gap-2 sm:gap-3 min-w-0">
                         <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
                           <span
-                            className="w-9 h-5 text-[10px] font-bold uppercase tracking-wider rounded-md border flex items-center justify-center flex-shrink-0"
-                            style={{
-                              background: extStyle.bg,
-                              color: extStyle.color,
-                              borderColor: extStyle.color + "20"
-                            }}
+                            className="w-9 h-5 text-[10px] font-bold uppercase tracking-wider rounded border flex items-center justify-center flex-shrink-0 bg-[var(--bg-2)] border border-[var(--border)] text-[var(--text-3)]"
                           >
                             {ext}
                           </span>
@@ -546,17 +527,15 @@ export default function DocumentsPage() {
                           </span>
                         </div>
 
-                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[var(--text-4)] border border-[var(--border)] px-1.5 py-0.5 rounded-md flex-shrink-0 leading-4">
-                          Synced
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-[var(--bg-2)] border border-[var(--border)] text-[var(--text-4)] px-1.5 py-0.5 rounded flex-shrink-0 leading-4">
+                          ✓ Synced
                         </span>
                       </div>
 
                       {/* Compact Metadata Row */}
-                      <div className="text-xs sm:text-[13px] font-normal text-[var(--text-4)] flex flex-wrap items-center gap-x-1.5 gap-y-1 md:pl-[50px] leading-relaxed min-w-0">
-                        <span className="whitespace-nowrap">{formatBytes(doc.file_size)}</span>
-                        <span className="hidden sm:inline">•</span>
+                      <div className="text-xs sm:text-[13px] font-normal text-[var(--text-4)] flex flex-wrap items-center gap-5 md:pl-[50px] leading-relaxed min-w-0">
+                        <span className="whitespace-nowrap">{formatBytes(doc.file_size, 0)}</span>
                         <span className="whitespace-nowrap">{chunksCount} chunks</span>
-                        <span>•</span>
                         <span className="whitespace-nowrap">{formattedDate}</span>
                       </div>
                     </div>

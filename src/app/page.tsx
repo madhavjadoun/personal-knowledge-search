@@ -4,13 +4,12 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import { supabase } from "@/lib/supabase";
-import BlurText from "@/components/ui/BlurText";
 import dynamic from "next/dynamic";
 import uploadAnimation from "../../public/upload.json";
 import OrbitLoader from "@/components/app/OrbitLoader";
 import NavbarLogo from "@/components/layout/NavbarLogo";
 import LogoSVG from "@/components/layout/LogoSVG";
-
+import Image from "next/image";
 const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 
 /* ── Constants ─────────────────────────────────── */
@@ -22,31 +21,9 @@ const ROTATING_WORDS = [
   "learn faster."
 ];
 
-const letterVariants = {
-  initial: { y: "100%", opacity: 0, filter: "blur(8px)" },
-  animate: {
-    y: "0%",
-    opacity: 1,
-    filter: "blur(0px)"
-  },
-  exit: {
-    y: "-120%",
-    opacity: 0,
-    filter: "blur(8px)"
-  }
-};
 
-const EXAMPLE_QUESTIONS = [
-  "Operating Systems",
-  "DBMS",
-  "Computer Networks",
-  "DSA",
-  "Machine Learning",
-  "Physics",
-  "Biology",
-  "Chemistry",
-  "History",
-];
+
+
 
 
 
@@ -85,6 +62,8 @@ export default function WelcomePage() {
   const isHeroInView = useInView(heroRef, { once: false, amount: 0.15 });
   const sectionRef = useRef<HTMLDivElement>(null);
   const isSectionInView = useInView(sectionRef, { once: false, amount: 0.15 });
+
+
 
   const [mounted, setMounted] = useState(false);
 
@@ -160,9 +139,6 @@ export default function WelcomePage() {
   // Rotating word
   const [wordIndex, setWordIndex] = useState(0);
 
-  // Shuffled visible questions
-  const [visibleQuestions, setVisibleQuestions] = useState<string[]>([]);
-
   /* Welcome page theme initialization */
   useEffect(() => {
     setMounted(true);
@@ -179,13 +155,6 @@ export default function WelcomePage() {
     };
     checkAuth();
   }, [router]);
-
-  /* Shuffling 5 user-focused questions on refresh */
-  useEffect(() => {
-    const shuffled = [...EXAMPLE_QUESTIONS].sort(() => 0.5 - Math.random());
-    setVisibleQuestions(shuffled.slice(0, 5));
-  }, []);
-
   /* Rotate words every 2.0s */
   useEffect(() => {
     const iv = setInterval(() => setWordIndex(i => (i + 1) % ROTATING_WORDS.length), 2000);
@@ -307,15 +276,8 @@ export default function WelcomePage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden bg-[var(--bg)] transition-colors duration-200">
 
-      {/* ── Aurora Glow (behind everything) ── */}
-      <div className="aurora-tl" />
-      <div className="aurora-br" />
-      <div className="aurora-accent" />
-
-
-
       {/* Top Header */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 sm:px-6 lg:px-20 py-4 sm:py-5 border-b border-[var(--border)] bg-[var(--surface)] backdrop-blur-md min-w-0">
+      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 sm:px-6 lg:px-20 py-4 sm:py-5 border-b border-[var(--border)] bg-[var(--bg)] min-w-0">
         <div className="flex items-center min-w-0 flex-shrink">
           <NavbarLogo />
         </div>
@@ -339,119 +301,74 @@ export default function WelcomePage() {
       </div>
 
       {/* Main Grid */}
-      <motion.div ref={heroRef} className="relative z-10 w-full max-w-7xl mx-auto flex flex-col justify-center px-4 sm:px-12 lg:px-20 pt-20 pb-4">
+      <motion.div ref={heroRef} className="relative z-10 w-full max-w-7xl mx-auto flex flex-col justify-center px-4 sm:px-12 lg:px-20 pt-28 sm:pt-36 pb-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-[72px] w-full items-start">
 
           {/* LEFT — Content Column (5 cols) */}
-          <div className="lg:col-span-5 flex flex-col gap-6.5 max-w-[530px] lg:max-w-none">
+          <div className="lg:col-span-5 flex flex-col gap-8 lg:gap-10 max-w-[530px] lg:max-w-none">
 
             {/* Title with integrated rotating text */}
             <div>
               <h1
-                className="text-[30px] xs:text-[34px] sm:text-[48px] lg:text-[60px] font-bold leading-[1.0] text-[var(--text-1)]"
+                className="text-[30px] xs:text-[34px] sm:text-[48px] lg:text-[60px] font-bold leading-[1.0] text-[var(--text-1)] tracking-tight"
                 style={{ letterSpacing: "-0.03em" }}
               >
-                <BlurText
-                  text="Turn any document"
-                  delay={40}
-                />{" "}
-                <br className="hidden sm:inline" />
-                <BlurText
-                  text="into an AI quiz to"
-                  delay={40}
-                  className="mr-2"
-                />
+                Turn any document <br className="hidden sm:inline" />
+                into an AI quiz to{" "}
                 <span className="relative inline-block overflow-hidden h-[1.2em] whitespace-nowrap align-bottom text-[var(--indigo-accent)]">
-                  <AnimatePresence mode="popLayout">
+                  <AnimatePresence mode="wait">
                     <motion.span
                       key={wordIndex}
-                      className="inline-block will-change-[transform,opacity,filter]"
-                      style={{ willChange: "transform, opacity, filter" }}
-                      initial="initial"
-                      animate="animate"
-                      exit="exit"
+                      initial={{ y: 12, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: -12, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: "easeInOut" }}
+                      className="inline-block"
                     >
-                      {ROTATING_WORDS[wordIndex].split("").map((char, index, arr) => {
-                        const delay = (arr.length - 1 - index) * 0.025;
-                        return (
-                          <motion.span
-                            key={index}
-                            variants={letterVariants}
-                            transition={{
-                              type: "spring",
-                              damping: 30,
-                              stiffness: 400,
-                              delay: delay
-                            }}
-                            className="inline-block will-change-[transform,opacity,filter]"
-                            style={{
-                              display: "inline-block",
-                              whiteSpace: "pre",
-                              color: "var(--indigo-accent)",
-                              willChange: "transform, opacity, filter"
-                            }}
-                          >
-                            {char}
-                          </motion.span>
-                        );
-                      })}
+                      {ROTATING_WORDS[wordIndex]}
                     </motion.span>
                   </AnimatePresence>
                 </span>
               </h1>
 
-              {/* Subheading with BlurText */}
-              <p className="text-[18px] lg:text-[20px] font-normal leading-[1.6] text-[var(--text-2)] mt-4 max-w-[640px]">
-                <BlurText
-                  text="Upload searchable or scanned PDFs, lecture slides, and notes. Our OCR pipeline extracts the text, chunks the content, and generates interactive MCQ practice tests in seconds."
-                  delay={45}
-                />
+              {/* Subheading */}
+              <p className="text-[18px] lg:text-[20px] font-normal leading-[1.6] text-[var(--text-2)] mt-6 max-w-[640px]">
+                Upload searchable or scanned PDFs, lecture slides, and notes. Our OCR pipeline extracts the text, chunks the content, and generates interactive MCQ practice tests in seconds.
               </p>
 
             </div>
 
-            {/* Categories & Trust Strip Container */}
+            {/* Why QuizGens Section */}
             <motion.div
               initial="hidden"
               animate={isHeroInView ? "visible" : "hidden"}
               variants={{
-                hidden: { opacity: 0, y: 15, transition: { duration: 0 } },
-                visible: { opacity: 1, y: 0, transition: { duration: 0.6, delay: 0.2 } }
+                hidden: { opacity: 0, y: 10, transition: { duration: 0 } },
+                visible: { opacity: 1, y: 0, transition: { duration: 0.4, delay: 0.1 } }
               }}
-              className="space-y-6"
+              className="space-y-5 pt-8 border-t border-[var(--border)]"
             >
-              {/* Trust Strip */}
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] font-mono uppercase tracking-wider text-[var(--text-4)] pt-3.5 border-t border-[var(--border)]">
-                <span>Private</span>
-                <span className="text-[var(--border)]">·</span>
-                <span>OCR Scanning</span>
-                <span className="text-[var(--border)]">·</span>
-                <span>Instant MCQs</span>
-                <span className="text-[var(--border)]">·</span>
-                <span>Study Aids</span>
-              </div>
-
-              {/* Inline query chips */}
-              <div className="space-y-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-4)]">
-                  ✦ Practice Categories
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {visibleQuestions.map((q, i) => (
-                    <span
-                      key={i}
-                      className="text-[11px] px-2.5 py-1 rounded-full font-medium transition-all duration-150 border border-[var(--border)] bg-[var(--surface)] text-[var(--text-2)] hover:border-[var(--border-strong)] hover:text-[var(--text-1)] hover:bg-[var(--bg-2)] cursor-default select-none"
-                    >
-                      {q}
+              <h3 className="text-lg font-semibold text-[var(--text-1)] tracking-tight">
+                Why QuizGens
+              </h3>
+              <ul className="space-y-3.5">
+                {[
+                  { bold: "Generates accurate quizzes", rest: "from your study material." },
+                  { bold: "Supports searchable", rest: "and scanned PDFs." },
+                  { bold: "Fast, private,", rest: "and reliable." },
+                  { bold: "Built for students", rest: "and educators." }
+                ].map((item, idx) => (
+                  <li key={idx} className="flex items-start gap-2.5 text-sm text-[var(--text-3)]">
+                    <svg className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>
+                      <strong className="font-semibold text-[var(--text-1)]">{item.bold}</strong> {item.rest}
                     </span>
-                  ))}
-                </div>
-              </div>
+                  </li>
+                ))}
+              </ul>
             </motion.div>
-
-
-
-
 
           </div>
 
@@ -465,11 +382,11 @@ export default function WelcomePage() {
             }}
             className="lg:col-span-7 flex flex-col justify-center w-full"
           >
-            <div className="w-full max-w-[540px] mx-auto lg:ml-auto lg:mr-0 glass-card rounded-xl overflow-hidden">
+            <div className="w-full max-w-[540px] mx-auto lg:ml-auto lg:mr-0 bg-[var(--surface-2)] border border-[var(--border)] rounded-xl overflow-hidden shadow-sm">
 
               {/* Card Header */}
               <div
-                className="px-4 sm:px-6 py-4 flex items-start sm:items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--bg-2)]/30 min-w-0"
+                className="px-4 sm:px-6 py-4 flex items-start sm:items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--bg-2)] min-w-0"
               >
                 <div className="min-w-0 flex-1">
                   <h3 className="text-sm font-semibold text-[var(--text-1)]">
@@ -482,8 +399,8 @@ export default function WelcomePage() {
 
                 {/* Decorative dots */}
                 <div className="flex items-center gap-1.5">
-                  {["#E9EEFF", "#DDF7F5", "#FFF1E6"].map((c) => (
-                    <div key={c} className="h-2 w-2 rounded-full border border-[var(--border)]" style={{ background: c }} />
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-1.5 w-1.5 rounded-full bg-[var(--border-strong)]" />
                   ))}
                 </div>
               </div>
@@ -497,7 +414,7 @@ export default function WelcomePage() {
                   onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
                   onDragLeave={() => setDragging(false)}
                   onDrop={onDrop}
-                  className="rounded-xl flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 border-2 border-dashed relative p-4 sm:p-6 bg-[var(--bg-2)]/30 group min-h-[160px] sm:min-h-[200px]"
+                  className="rounded-xl flex flex-col items-center justify-center text-center cursor-pointer border-2 border-dashed relative p-4 sm:p-6 bg-[var(--bg-2)] group min-h-[160px] sm:min-h-[200px]"
                   style={{
                     borderColor: dragging ? "var(--indigo)" : dropped ? "#16A34A" : "var(--border-strong)",
                   }}
@@ -559,7 +476,7 @@ export default function WelcomePage() {
                       <p className="text-[10px] text-[var(--text-4)] mt-0.5">
                         or click to browse local files
                       </p>
-                      <span className="text-[8px] font-mono bg-[var(--bg-2)] px-2 py-0.5 rounded mt-3 text-[var(--text-3)]">
+                      <span className="text-[8px] font-mono bg-[var(--bg-3)] px-2 py-0.5 rounded mt-3 text-[var(--text-3)]">
                         Searchable & Scanned PDFs (Max 25MB)
                       </span>
                     </div>
@@ -587,104 +504,27 @@ export default function WelcomePage() {
                   </button>
                 )}
 
-                {/* Pipeline visualizer */}
-                <div className="space-y-2">
-                  <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-4)]">
-                    Quiz Generation Pipeline
-                  </p>
-
-                  <div className="flex items-center justify-between text-[9px] font-mono py-2.5 px-3 rounded-lg border border-[var(--border)] bg-[var(--bg-2)]/30">
+                {/* Upload Tips */}
+                <div className="space-y-3.5 pt-4 border-t border-[var(--border)]">
+                  <h4 className="text-xs font-semibold text-[var(--text-1)] tracking-tight">
+                    Upload Tips
+                  </h4>
+                  <ul className="space-y-3">
                     {[
-                      { name: "Upload", min: 0, max: 20 },
-                      { name: "OCR", min: 20, max: 50 },
-                      { name: "Chunking", min: 50, max: 80 },
-                      { name: "AI Quiz", min: 80, max: 100 },
-                      { name: "Ready", min: 100, max: 100 }
-                    ].map((st, idx, arr) => {
-                      const isStepActive = progress >= st.min && progress < st.max;
-                      const isStepCompleted = progress >= st.max;
-                      return (
-                        <div key={st.name} className="flex items-center gap-1 flex-1 justify-center last:flex-none">
-                          <div className="flex items-center gap-1">
-                            <span
-                              className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${isStepActive
-                                ? "bg-[var(--indigo)] scale-110"
-                                : isStepCompleted
-                                  ? "bg-green-600"
-                                  : "bg-[var(--bg-3)]"
-                                }`}
-                            />
-                            <span
-                              className={`font-semibold transition-colors duration-300 ${isStepActive
-                                ? "text-[var(--text-1)] font-bold"
-                                : isStepCompleted
-                                  ? "text-green-600"
-                                  : "text-[var(--text-4)]"
-                                }`}
-                            >
-                              {st.name}
-                            </span>
-                          </div>
-                          {idx < arr.length - 1 && (
-                            <span className="text-[var(--border)] mx-auto opacity-40 text-[7px]">→</span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Pipeline Log */}
-                <div className="space-y-1.5">
-                  <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-4)]">
-                    Quiz Generation Log
-                  </p>
-
-                  <div className="space-y-1.5 font-mono text-[9px] p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-2)]/30 text-[var(--text-3)] min-h-[64px]">
-                    {dropped ? (
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[var(--text-1)]">
-                          <span className="font-semibold">{dropped}</span>
-                          <span className="font-bold text-[var(--text-2)]">{progress}%</span>
-                        </div>
-                        <div className="leading-relaxed whitespace-pre font-medium text-[8px] text-[var(--text-4)]">
-                          {`> Uploading and scanning document... OK`}
-                          {progress >= 20 && `\n> Running OCR text extraction... Done`}
-                          {progress >= 50 && `\n> Splitting text into context chunks... Done`}
-                          {progress >= 80 && `\n> Generating MCQs via Gemini AI... Ready`}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center py-2.5 text-center text-[var(--text-4)]">
-                        <p className="font-medium">No quiz generated yet</p>
-                        <p className="text-[8px] mt-0.5 text-[var(--text-4)]">Upload a PDF to generate a practice quiz.</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Card Footer */}
-                <div
-                  className="flex items-center justify-between pt-3 border-t border-[var(--border)] text-[10px] text-[var(--text-4)] gap-2"
-                >
-                  <div className="flex flex-wrap gap-1.5 items-center">
-                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold text-[8px] uppercase tracking-wider border border-emerald-500/10">
-                      OCR Ready
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded bg-[var(--indigo)]/10 text-[var(--indigo)] dark:text-[var(--indigo-accent)] font-semibold text-[8px] uppercase tracking-wider border border-[var(--indigo)]/10">
-                      AI Powered
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold text-[8px] uppercase tracking-wider border border-amber-500/10">
-                      10–50 MCQs
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={() => router.push("/dashboard")}
-                    className="font-semibold text-[var(--text-2)] hover:underline cursor-pointer flex-shrink-0"
-                  >
-                    Open dashboard →
-                  </button>
+                      "Use clear, readable PDFs for the best results.",
+                      "Scanned notes and documents are fully supported.",
+                      "Larger files may take slightly longer to process.",
+                      "Generates 10–50 high-quality MCQs automatically.",
+                      "Download your quiz and start practicing instantly."
+                    ].map((tip, idx) => (
+                      <li key={idx} className="flex items-start gap-2.5 text-xs text-[var(--text-3)] leading-relaxed">
+                        <svg className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>{tip}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
 
               </div>
@@ -712,7 +552,7 @@ export default function WelcomePage() {
       >
         {/* Section Header */}
         <div className="text-center space-y-2.5">
-          <h3 className="text-lg font-bold text-[var(--text-1)] tracking-tight">
+          <h3 className="text-lg font-semibold text-[var(--text-1)] tracking-tight">
             How It Works
           </h3>
           <p className="text-xs text-[var(--text-3)] max-w-lg mx-auto">
@@ -726,15 +566,11 @@ export default function WelcomePage() {
           {/* Card 1 */}
           <motion.div
             variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 20, stiffness: 80 } } }}
-            whileHover={{ y: -4 }}
-            className="glass-card rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 group transition-all duration-300 hover:shadow-lg hover:shadow-[var(--indigo-accent)]/5 w-full lg:flex-1"
+            className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 w-full lg:flex-1"
           >
-            <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-              className="h-12 w-12 rounded-2xl flex-shrink-0 flex items-center justify-center bg-indigo-500/10 border border-indigo-500/20 text-[var(--indigo-accent)] group-hover:rotate-[4deg] transition-transform duration-300">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
-            </motion.div>
+            <div className="h-10 w-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[var(--bg-2)] border border-[var(--border)]">
+              <Image src="/how-it-works-1.png" alt="Upload" width={20} height={20} className="object-contain dark:invert" />
+            </div>
             <div className="space-y-1">
               <h4 className="text-sm font-bold text-[var(--text-1)]">Upload Learning Material</h4>
               <p className="text-[11px] text-[var(--text-3)] leading-relaxed">Supports searchable and scanned PDFs</p>
@@ -744,10 +580,10 @@ export default function WelcomePage() {
           {/* Arrow 1 — desktop only */}
           <motion.div
             className="hidden lg:block flex-shrink-0"
-            animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.2, 0.8], filter: ["drop-shadow(0 0 0px transparent)", "drop-shadow(0 0 8px var(--indigo-accent))", "drop-shadow(0 0 0px transparent)"] }}
+            animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.2, 0.8], filter: ["drop-shadow(0 0 0px transparent)", "drop-shadow(0 0 8px var(--text-1))", "drop-shadow(0 0 0px transparent)"] }}
             transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: 0 }}
           >
-            <svg className="w-7 h-7 text-[var(--indigo-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <svg className="w-7 h-7 text-[var(--text-1)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
             </svg>
           </motion.div>
@@ -755,15 +591,11 @@ export default function WelcomePage() {
           {/* Card 2 */}
           <motion.div
             variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 20, stiffness: 80, delay: 0.1 } } }}
-            whileHover={{ y: -4 }}
-            className="glass-card rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 group transition-all duration-300 hover:shadow-lg hover:shadow-[var(--indigo-accent)]/5 w-full lg:flex-1"
+            className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 w-full lg:flex-1"
           >
-            <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 3, ease: "easeInOut", delay: 0.2 }}
-              className="h-12 w-12 rounded-2xl flex-shrink-0 flex items-center justify-center bg-indigo-500/10 border border-indigo-500/20 text-[var(--indigo-accent)] group-hover:rotate-[4deg] transition-transform duration-300">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1m-1.636 6.364l-.707-.707M12 20v1m-6.364-1.636l.707-.707M3 12h1m1.636-6.364l.707.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
-              </svg>
-            </motion.div>
+            <div className="h-10 w-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[var(--bg-2)] border border-[var(--border)]">
+              <Image src="/how-it-works-2.png" alt="Processing" width={20} height={20} className="object-contain dark:invert" />
+            </div>
             <div className="space-y-1">
               <h4 className="text-sm font-bold text-[var(--text-1)]">AI Processing</h4>
               <p className="text-[11px] text-[var(--text-3)] leading-relaxed">OCR + smart text extraction</p>
@@ -773,10 +605,10 @@ export default function WelcomePage() {
           {/* Arrow 2 — desktop only */}
           <motion.div
             className="hidden lg:block flex-shrink-0"
-            animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.2, 0.8], filter: ["drop-shadow(0 0 0px transparent)", "drop-shadow(0 0 8px var(--indigo-accent))", "drop-shadow(0 0 0px transparent)"] }}
+            animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.2, 0.8], filter: ["drop-shadow(0 0 0px transparent)", "drop-shadow(0 0 8px var(--text-1))", "drop-shadow(0 0 0px transparent)"] }}
             transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
           >
-            <svg className="w-7 h-7 text-[var(--indigo-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <svg className="w-7 h-7 text-[var(--text-1)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
             </svg>
           </motion.div>
@@ -784,15 +616,11 @@ export default function WelcomePage() {
           {/* Card 3 */}
           <motion.div
             variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 20, stiffness: 80, delay: 0.2 } } }}
-            whileHover={{ y: -4 }}
-            className="glass-card rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 group transition-all duration-300 hover:shadow-lg hover:shadow-[var(--indigo-accent)]/5 w-full lg:flex-1"
+            className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 w-full lg:flex-1"
           >
-            <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 3, ease: "easeInOut", delay: 0.4 }}
-              className="h-12 w-12 rounded-2xl flex-shrink-0 flex items-center justify-center bg-indigo-500/10 border border-indigo-500/20 text-[var(--indigo-accent)] group-hover:rotate-[4deg] transition-transform duration-300">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            </motion.div>
+            <div className="h-10 w-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[var(--bg-2)] border border-[var(--border)]">
+              <Image src="/how-it-works-3.png" alt="Generate" width={20} height={20} className="object-contain dark:invert" />
+            </div>
             <div className="space-y-1">
               <h4 className="text-sm font-bold text-[var(--text-1)]">Generate Quiz</h4>
               <p className="text-[11px] text-[var(--text-3)] leading-relaxed">Create 10–50 AI-generated MCQs</p>
@@ -802,10 +630,10 @@ export default function WelcomePage() {
           {/* Arrow 3 — desktop only */}
           <motion.div
             className="hidden lg:block flex-shrink-0"
-            animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.2, 0.8], filter: ["drop-shadow(0 0 0px transparent)", "drop-shadow(0 0 8px var(--indigo-accent))", "drop-shadow(0 0 0px transparent)"] }}
+            animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.2, 0.8], filter: ["drop-shadow(0 0 0px transparent)", "drop-shadow(0 0 8px var(--text-1))", "drop-shadow(0 0 0px transparent)"] }}
             transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: 1.6 }}
           >
-            <svg className="w-7 h-7 text-[var(--indigo-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <svg className="w-7 h-7 text-[var(--text-1)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
             </svg>
           </motion.div>
@@ -813,21 +641,16 @@ export default function WelcomePage() {
           {/* Card 4 */}
           <motion.div
             variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 20, stiffness: 80, delay: 0.3 } } }}
-            whileHover={{ y: -4 }}
-            className="glass-card rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 group transition-all duration-300 hover:shadow-lg hover:shadow-[var(--indigo-accent)]/5 w-full lg:flex-1"
+            className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 w-full lg:flex-1"
           >
-            <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 3, ease: "easeInOut", delay: 0.6 }}
-              className="h-12 w-12 rounded-2xl flex-shrink-0 flex items-center justify-center bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 group-hover:rotate-[4deg] transition-transform duration-300">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </motion.div>
+            <div className="h-10 w-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[var(--bg-2)] border border-[var(--border)]">
+              <Image src="/how-it-works-4.png" alt="Learn" width={20} height={20} className="object-contain dark:invert" />
+            </div>
             <div className="space-y-1">
               <h4 className="text-sm font-bold text-[var(--text-1)]">Practice & Learn</h4>
               <p className="text-[11px] text-[var(--text-3)] leading-relaxed">Instant scoring with explanations</p>
             </div>
           </motion.div>
-
         </div>
       </motion.div>
 
@@ -926,6 +749,35 @@ export default function WelcomePage() {
                   <svg className="w-4.5 h-4.5" fill="currentColor" viewBox="0 0 24 24">
                     <path fillRule="evenodd" d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.779-1.75-1.75s.784-1.75 1.75-1.75 1.75.779 1.75 1.75-.784 1.75-1.75 1.75zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" clipRule="evenodd" />
                   </svg>
+                </a>
+              </div>
+
+              {/* Product Hunt Review Badge */}
+              <div className="pt-3">
+                <a 
+                  href="https://www.producthunt.com/products/quizgens/reviews/new?utm_source=badge-product_review&utm_medium=badge&utm_source=badge-quizgens" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-block transition-transform hover:scale-[1.02] duration-200"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img 
+                    src="/ph-light.svg" 
+                    alt="QuizGens - Generate AI-powered quizzes from PDFs in seconds. | Product Hunt" 
+                    style={{ width: "250px", height: "54px" }} 
+                    width={250} 
+                    height={54} 
+                    className="block dark:hidden"
+                  />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img 
+                    src="/ph-dark.svg" 
+                    alt="QuizGens - Generate AI-powered quizzes from PDFs in seconds. | Product Hunt" 
+                    style={{ width: "250px", height: "54px" }} 
+                    width={250} 
+                    height={54} 
+                    className="hidden dark:block"
+                  />
                 </a>
               </div>
             </div>
