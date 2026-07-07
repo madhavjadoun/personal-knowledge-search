@@ -5,6 +5,7 @@ import Link from "next/link";
 import AppShell from "@/components/app/AppShell";
 import { supabase } from "@/lib/supabase";
 import OrbitLoader from "@/components/app/OrbitLoader";
+import FormattedDateTime from "@/components/shared/FormattedDateTime";
 
 interface DBQuiz {
   id: string;
@@ -121,16 +122,16 @@ export default function DashboardPage() {
         // Artificial delay of 1 second for loader visualization
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
-        // 0. Resolve the currently authenticated user
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return; // AppShell will redirect to /login if not authenticated
+        // 0. Resolve the session and user
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        if (!session || !user) return; // AppShell will redirect to /login if not authenticated
+        const token = session.access_token;
 
         // Fetch daily credit balance from backend
         let creditsRemaining = 30;
         let creditsLimit = 30;
         try {
-          const { data: { session } } = await supabase.auth.getSession();
-          const token = session?.access_token;
           if (token) {
             let apiUrl = process.env.NEXT_PUBLIC_API_URL || 
               (process.env.NODE_ENV === "production" 
@@ -149,7 +150,9 @@ export default function DashboardPage() {
             }
           }
         } catch (credErr) {
-          console.warn("Failed to fetch credits in dashboard:", credErr);
+          if (process.env.NODE_ENV !== "production") {
+            console.warn("Failed to fetch credits in dashboard:", credErr);
+          }
         }
 
         // 1. Fetch this user's documents metadata
@@ -174,8 +177,6 @@ export default function DashboardPage() {
         let lastQuizTime: string | null = null;
         
         try {
-          const { data: { session } } = await supabase.auth.getSession();
-          const token = session?.access_token;
           if (token) {
             let apiUrl = process.env.NEXT_PUBLIC_API_URL || 
               (process.env.NODE_ENV === "production" 
@@ -217,16 +218,14 @@ export default function DashboardPage() {
               });
 
               if (dbQuizzes.length > 0) {
-                const lastQuizDate = new Date(dbQuizzes[0].created_at);
-                lastQuizTime = lastQuizDate.toLocaleTimeString("en-US", {
-                  hour: "2-digit",
-                  minute: "2-digit"
-                });
+                lastQuizTime = dbQuizzes[0].created_at;
               }
             }
           }
         } catch (historyErr) {
-          console.warn("Failed to fetch user history in dashboard:", historyErr);
+          if (process.env.NODE_ENV !== "production") {
+            console.warn("Failed to fetch user history in dashboard:", historyErr);
+          }
         }
         
         const creditsProgress = (creditsRemaining / creditsLimit) * 100;
@@ -306,7 +305,7 @@ export default function DashboardPage() {
         // 6. Map recent documents (first 4 items)
         const liveRecentDocs: RecentDoc[] = documents.slice(0, 4).map((d) => ({
           name: d.title || d.file_name,
-          date: new Date(d.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          date: d.created_at,
           size: formatBytes(d.file_size),
           chunks: Math.max(1, Math.round(d.file_size / 800)),
           status: "Ready",
@@ -322,7 +321,7 @@ export default function DashboardPage() {
             title: `Quiz completed: ${q.title}`,
             type: "retrieval",
             desc: `Scored with ${q.accuracy}% accuracy using ${docTitle}`,
-            time: new Date(q.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+            time: q.created_at
           });
         });
 
@@ -348,7 +347,9 @@ export default function DashboardPage() {
         setRecentDocs(liveRecentDocs);
         setRecentLogs(logs);
       } catch (err) {
-        console.error("Error loading dashboard data from Supabase:", err);
+        if (process.env.NODE_ENV !== "production") {
+          console.error("Error loading dashboard data from Supabase:", err);
+        }
       } finally {
         setLoading(false);
       }
@@ -406,7 +407,7 @@ export default function DashboardPage() {
                           {s.activityData.lastTime && (
                             <div className="flex justify-between items-center gap-2">
                               <span className="text-[12px] font-medium text-[var(--text-3)] min-w-0 leading-snug">Last Quiz Time</span>
-                              <span className="text-stat-value text-base flex-shrink-0">{s.activityData.lastTime}</span>
+                              <span className="text-stat-value text-base flex-shrink-0"><FormattedDateTime date={s.activityData.lastTime} type="time" /></span>
                             </div>
                           )}
                         </div>
@@ -489,7 +490,7 @@ export default function DashboardPage() {
                               {doc.name}
                             </p>
                             <p className="text-[11.5px] font-normal text-[var(--text-4)] mt-0.5 truncate">
-                              {doc.date} · {doc.size} ·{" "}
+                              <FormattedDateTime date={doc.date} options={{ month: "short", day: "numeric" }} /> · {doc.size} ·{" "}
                               <span className="font-semibold text-[var(--text-3)] tabular-nums">{doc.chunks} chunks</span>
                             </p>
                           </div>
@@ -531,7 +532,7 @@ export default function DashboardPage() {
                             <div className="flex-1 min-w-0">
                               <div className="flex justify-between items-baseline gap-2">
                                 <p className="text-[13px] font-semibold text-[var(--text-1)] truncate tracking-tight leading-snug">{log.title}</p>
-                                <span className="text-[10px] font-mono font-medium text-[var(--text-4)] flex-shrink-0 tabular-nums">{log.time}</span>
+                                <span className="text-[10px] font-mono font-medium text-[var(--text-4)] flex-shrink-0 tabular-nums"><FormattedDateTime date={log.time} options={{ month: "short", day: "numeric" }} /></span>
                               </div>
                               <p className="text-[11.5px] font-normal text-[var(--text-3)] mt-0.5 leading-relaxed">{log.desc}</p>
                             </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import AppShell from "@/components/app/AppShell";
 import { supabase } from "@/lib/supabase";
+import FormattedDateTime from "@/components/shared/FormattedDateTime";
 
 interface DBQuestion {
   order_index: number;
@@ -37,16 +38,6 @@ function formatBytes(bytes: number, decimals = 1) {
   const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
-}
-
-function formatUploadedDate(dateStr?: string) {
-  if (!dateStr) return "N/A";
-  const date = new Date(dateStr);
-  const today = new Date();
-  if (date.toDateString() === today.toDateString()) {
-    return "Today";
-  }
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 function getDocumentDisplayName(doc?: DocumentItem) {
@@ -97,7 +88,9 @@ export default function QuizPage() {
         try {
           setCreditsInfo(JSON.parse(cached));
         } catch (e) {
-          console.warn("Failed to parse cached credits:", e);
+          if (process.env.NODE_ENV !== "production") {
+            console.warn("Failed to parse cached credits:", e);
+          }
         }
       }
     }
@@ -125,8 +118,16 @@ export default function QuizPage() {
   useEffect(() => {
     async function fetchDocs() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        if (!user || !session) return;
+        const token = session.access_token;
+
+        // Load default settings (MCQ count)
+        const storedCount = localStorage.getItem(`settings_mcq_count_${user.id}`);
+        if (storedCount) {
+          setNumQuestions(parseInt(storedCount) || 10);
+        }
 
         // Fetch documents promise
         const fetchDocsPromise = supabase
@@ -138,8 +139,6 @@ export default function QuizPage() {
         // Fetch credits status promise
         const fetchCreditsPromise = (async () => {
           try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
             if (token) {
               const credRes = await fetch(`${apiUrl}/credits/status`, {
                 headers: { "Authorization": `Bearer ${token}` },
@@ -156,7 +155,9 @@ export default function QuizPage() {
               }
             }
           } catch (credErr) {
-            console.warn("Failed to fetch credit status:", credErr);
+            if (process.env.NODE_ENV !== "production") {
+              console.warn("Failed to fetch credit status:", credErr);
+            }
           }
         })();
 
@@ -175,27 +176,15 @@ export default function QuizPage() {
           }
         }
       } catch (err) {
-        console.error("Failed to load documents:", err);
+        if (process.env.NODE_ENV !== "production") {
+          console.error("Failed to load documents:", err);
+        }
         setErrorMsg("Failed to load documents. Please check your connection.");
       }
     }
 
     fetchDocs();
   }, [apiUrl]);
-
-  // Load default settings (MCQ count)
-  useEffect(() => {
-    async function loadDefaultSettings() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const storedCount = localStorage.getItem(`settings_mcq_count_${user.id}`);
-        if (storedCount) {
-          setNumQuestions(parseInt(storedCount) || 10);
-        }
-      }
-    }
-    loadDefaultSettings();
-  }, []);
 
   // Load existing quiz from URL query parameters (for review mode)
   useEffect(() => {
@@ -253,11 +242,15 @@ export default function QuizPage() {
                 }
               }
             } catch (e) {
-              console.error("Failed to parse quiz status JSON:", e);
+              if (process.env.NODE_ENV !== "production") {
+                console.error("Failed to parse quiz status JSON:", e);
+              }
             }
           }
         } catch (err) {
-          console.error("Failed to load quiz from URL:", err);
+          if (process.env.NODE_ENV !== "production") {
+            console.error("Failed to load quiz from URL:", err);
+          }
           showToast("Failed to load quiz.", "error");
         } finally {
           setGeneratingQuiz(false);
@@ -372,7 +365,9 @@ export default function QuizPage() {
         }) : null);
       }
     } catch (err) {
-      console.error("Quiz error:", err);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Quiz error:", err);
+      }
       setErrorMsg(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setGeneratingQuiz(false);
@@ -452,7 +447,9 @@ export default function QuizPage() {
 
         showToast("Quiz submitted & saved to history!", "success");
       } catch (err) {
-        console.error("Failed to save quiz attempt:", err);
+        if (process.env.NODE_ENV !== "production") {
+          console.error("Failed to save quiz attempt:", err);
+        }
         showToast("Failed to persist quiz results to history.", "error");
       }
     } else {
@@ -742,10 +739,9 @@ export default function QuizPage() {
                   <span className="text-xs" style={{ color: "#92400e", opacity: 0.85 }}>
                     You&apos;ve used all {creditsInfo?.limit ?? 30} of your free credits for today.
                     Your credits reset at midnight UTC
-                    {creditsInfo?.resetAt ? (() => {
-                      const t = new Date(creditsInfo.resetAt);
-                      return ` (${t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} your time)`;
-                    })() : "."}
+                    {creditsInfo?.resetAt ? (
+                      <> (<FormattedDateTime date={creditsInfo.resetAt} type="time" /> your time)</>
+                    ) : "."}
                   </span>
                 </div>
               </div>
@@ -878,7 +874,7 @@ export default function QuizPage() {
               <div className="flex flex-col gap-1.5">
                 <span className="text-xs font-medium text-[var(--text-4)]">Uploaded</span>
                 <span className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-xs font-semibold text-[var(--text-1)] w-fit">
-                  {formatUploadedDate(selectedDoc.created_at)}
+                  <FormattedDateTime date={selectedDoc.created_at} options={{ month: "short", day: "numeric" }} />
                 </span>
               </div>
             </div>
@@ -1025,12 +1021,9 @@ export default function QuizPage() {
               
               <p className="text-xs font-normal text-[var(--text-4)] leading-relaxed">
                 Your limit resets automatically
-                {creditsInfo?.resetAt
-                  ? ` at ${new Date(creditsInfo.resetAt).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })} (your local time).`
-                  : "."}
+                {creditsInfo?.resetAt ? (
+                  <> at <FormattedDateTime date={creditsInfo.resetAt} type="time" /> (your local time).</>
+                ) : "."}
               </p>
             </div>
             

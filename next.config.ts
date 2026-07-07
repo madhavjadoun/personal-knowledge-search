@@ -8,6 +8,10 @@ const connectSources = [
   "'self'",
   "https://*.supabase.co",
   "https://generativelanguage.googleapis.com",
+  "https://www.google-analytics.com",
+  "https://*.google-analytics.com",
+  "https://*.analytics.google.com",
+  "https://*.g.doubleclick.net",
 ];
 
 if (supabaseUrl) {
@@ -45,7 +49,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Content-Security-Policy",
-            value: `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://*.googleapis.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.googleusercontent.com https://srhhlhcgkgopibhleliq.supabase.co; connect-src ${connectSrcString}; frame-ancestors 'none';`,
+            value: `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://*.googleapis.com https://www.googletagmanager.com https://*.googletagmanager.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; font-src 'self' https://fonts.gstatic.com https://cdn.fontshare.com data:; img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.googleusercontent.com https://*.supabase.co ${supabaseUrl}; connect-src ${connectSrcString}; frame-src 'self' https://accounts.google.com; frame-ancestors 'none';`,
           },
           {
             key: "X-Frame-Options",

@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import OrbitLoader from "@/components/app/OrbitLoader";
 import { CheckCircle2, Download as DownloadIcon, BookOpen, FileText } from "lucide-react";
 import Image from "next/image";
+import FormattedDateTime from "@/components/shared/FormattedDateTime";
 
 interface QuizAttempt {
   completed: boolean;
@@ -120,7 +121,9 @@ export default function HistoryPage() {
         const quizData = await res.json();
         setQuizzes(quizData.quizzes || []);
       } catch (err) {
-        console.error("Failed to load history:", err);
+        if (process.env.NODE_ENV !== "production") {
+          console.error("Failed to load history:", err);
+        }
         showToast("Error loading quiz history.", "error");
       } finally {
         setLoading(false);
@@ -255,7 +258,9 @@ export default function HistoryPage() {
       setQuizzes(prev => prev.filter(q => q.id !== quizToDelete.id));
       setQuizToDelete(null);
     } catch (err) {
-      console.error("Delete failed:", err);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Delete failed:", err);
+      }
       showToast("Failed to delete quiz.", "error");
     } finally {
       setDeleting(false);
@@ -296,7 +301,9 @@ export default function HistoryPage() {
       setQuizzes([]);
       setClearAllConfirm(false);
     } catch (err) {
-      console.error("Clear all failed:", err);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Clear all failed:", err);
+      }
       showToast("Failed to clear quiz history.", "error");
     } finally {
       setClearing(false);
@@ -398,12 +405,6 @@ export default function HistoryPage() {
               const docName = docMap[quiz.document_id] || "Untitled Document";
               const fallbackTitle = `${docName} Quiz`;
               const attempt = parseAttempt(quiz.status, fallbackTitle);
-              const formattedDate = new Date(quiz.created_at).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric"
-              });
-
               return (
                 <div
                   key={quiz.id}
@@ -427,7 +428,7 @@ export default function HistoryPage() {
                             <span className="truncate min-w-0">{docName}</span>
                           </p>
                           <p className="text-[9px] font-normal text-[var(--text-4)]">
-                            Created {formattedDate}
+                            Created <FormattedDateTime date={quiz.created_at} />
                           </p>
                         </div>
                       </div>

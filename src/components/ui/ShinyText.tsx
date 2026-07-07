@@ -89,13 +89,13 @@ const ShinyText = ({
     directionRef.current = direction === 'left' ? 1 : -1;
     elapsedRef.current = 0;
     progress.set(0);
-  }, [direction]);
+  }, [direction, progress]);
 
   useEffect(() => {
     elapsedRef.current = 0;
     progress.set(directionRef.current === 1 ? 0 : 100);
     lastTimeRef.current = null;
-  }, [disabled]);
+  }, [disabled, progress]);
 
   const backgroundPosition = useTransform(progress, p => `${150 - p * 2}% center`);
 

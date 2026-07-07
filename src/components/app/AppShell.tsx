@@ -3,14 +3,10 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
-import menuAnimation from "../../../public/menu2.json";
 import BlurText from "@/components/ui/BlurText";
 import { supabase } from "@/lib/supabase";
 import OrbitLoader from "@/components/app/OrbitLoader";
 import NavbarLogo from "@/components/layout/NavbarLogo";
-
-const Lottie = dynamic(() => import("lottie-react"), { ssr: false });
 
 function SidebarToggle({ isOpen, onClick }: { isOpen: boolean; onClick: () => void }) {
   return (

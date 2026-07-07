@@ -5,6 +5,7 @@ import Link from "next/link";
 import AppShell from "@/components/app/AppShell";
 import OrbitLoader from "@/components/app/OrbitLoader";
 import { supabase } from "@/lib/supabase";
+import FormattedDateTime from "@/components/shared/FormattedDateTime";
 
 interface SupabaseDoc {
   id: string;
@@ -183,7 +184,9 @@ export default function DocumentsPage() {
       window.open(fileUrl, "_blank", "noopener,noreferrer");
 
     } catch (err) {
-      console.error("Preview failed:", err);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Preview failed:", err);
+      }
       showToast("Error loading document preview.", "error");
     }
   };
@@ -210,7 +213,9 @@ export default function DocumentsPage() {
       if (error) throw error;
       setDocs(data || []);
     } catch (err) {
-      console.error("Error fetching documents:", err);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Error fetching documents:", err);
+      }
     } finally {
       setLoading(false);
     }
@@ -307,7 +312,9 @@ export default function DocumentsPage() {
 
     } catch (err) {
       clearInterval(progressInterval);
-      console.error("Upload failed:", err);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Upload failed:", err);
+      }
       const rawMsg = err && typeof err === "object" && "message" in err ? String((err as Record<string, unknown>).message) : String(err);
       const { title, subtitle, action } = parseUploadError(rawMsg);
       showToast(title, "error", subtitle, action);
@@ -333,7 +340,9 @@ export default function DocumentsPage() {
         .eq("user_id", userId);
 
       if (chunkDeleteError) {
-        console.warn("Failed to delete chunks (may have CASCADE):", chunkDeleteError);
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("Failed to delete chunks (may have CASCADE):", chunkDeleteError);
+        }
       }
 
       // 2. Delete from Supabase Storage
@@ -355,7 +364,9 @@ export default function DocumentsPage() {
       await fetchDocs();
       showToast("Document deleted successfully.", "success");
     } catch (err) {
-      console.error("Delete failed:", err);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Delete failed:", err);
+      }
       const errMsg = err && typeof err === "object" && "message" in err ? String((err as Record<string, unknown>).message) : String(err);
       showToast("Failed to delete document: " + errMsg, "error");
     }
@@ -498,11 +509,6 @@ export default function DocumentsPage() {
                 const displayName = getDocumentDisplayName(doc);
                 const lastDot = doc.file_name.lastIndexOf(".");
                 const ext = lastDot !== -1 ? doc.file_name.substring(lastDot + 1).toUpperCase() : "PDF";
-                const formattedDate = new Date(doc.created_at).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                });
                 const chunksCount = Math.max(1, Math.round(doc.file_size / 800));
 
                 return (
@@ -536,7 +542,7 @@ export default function DocumentsPage() {
                       <div className="text-xs sm:text-[13px] font-normal text-[var(--text-4)] flex flex-wrap items-center gap-5 md:pl-[50px] leading-relaxed min-w-0">
                         <span className="whitespace-nowrap">{formatBytes(doc.file_size, 0)}</span>
                         <span className="whitespace-nowrap">{chunksCount} chunks</span>
-                        <span className="whitespace-nowrap">{formattedDate}</span>
+                        <span className="whitespace-nowrap"><FormattedDateTime date={doc.created_at} /></span>
                       </div>
                     </div>
 

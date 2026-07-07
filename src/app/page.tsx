@@ -211,7 +211,9 @@ export default function WelcomePage() {
       // If the token is about to expire, force a refresh before uploading
       if (session.expires_at && Date.now() / 1000 > session.expires_at - 60) {
         const { data: refreshedSessionData, error: refreshError } = await supabase.auth.refreshSession();
-        if (refreshError) console.warn("[Upload] Refresh failed:", refreshError.message);
+        if (refreshError && process.env.NODE_ENV !== "production") {
+          console.warn("[Upload] Refresh failed:", refreshError.message);
+        }
         session = refreshedSessionData.session || session;
       }
 
@@ -263,7 +265,9 @@ export default function WelcomePage() {
 
     } catch (err) {
       clearInterval(progressInterval);
-      console.error("[Upload] Final caught error:", err);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("[Upload] Final caught error:", err);
+      }
       setDropped(null);
       setProgress(0);
       const rawMsg = err && typeof err === "object" && "message" in err

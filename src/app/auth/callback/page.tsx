@@ -13,14 +13,18 @@ function AuthCallbackContent() {
     const errorParam = searchParams.get("error");
     const errorDescription = searchParams.get("error_description");
 
-    console.log("─── [Client Auth Callback] ───");
-    console.log("Current window.location.origin:", typeof window !== "undefined" ? window.location.origin : "SSR/undefined");
-    console.log("Current window.location.href:", typeof window !== "undefined" ? window.location.href : "SSR/undefined");
-    console.log("OAuth errorParam:", errorParam);
-    console.log("OAuth errorDescription:", errorDescription);
+    if (process.env.NODE_ENV !== "production") {
+      console.log("─── [Client Auth Callback] ───");
+      console.log("Current window.location.origin:", typeof window !== "undefined" ? window.location.origin : "SSR/undefined");
+      console.log("Current window.location.href:", typeof window !== "undefined" ? window.location.href : "SSR/undefined");
+      console.log("OAuth errorParam:", errorParam);
+      console.log("OAuth errorDescription:", errorDescription);
+    }
 
     if (errorParam) {
-      console.error("[Auth Callback] OAuth Error parameter found:", errorParam, errorDescription);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("[Auth Callback] OAuth Error parameter found:", errorParam, errorDescription);
+      }
       const loginUrl = `/login?error=${encodeURIComponent(errorDescription || errorParam)}`;
       router.replace(loginUrl);
       return;
@@ -29,9 +33,13 @@ function AuthCallbackContent() {
     // 2. Check if session is already present
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      console.log("[Auth Callback] getSession output:", !!session);
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Auth Callback] getSession output:", !!session);
+      }
       if (session) {
-        console.log("[Auth Callback] Existing session found, redirecting to dashboard.");
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[Auth Callback] Existing session found, redirecting to dashboard.");
+        }
         router.replace("/dashboard");
       }
     };
@@ -39,10 +47,14 @@ function AuthCallbackContent() {
 
     // 3. Listen for real-time authentication state changes (such as automatic PKCE exchange)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("[Auth Callback] Auth state changed event:", event, "session established:", !!session);
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Auth Callback] Auth state changed event:", event, "session established:", !!session);
+      }
       if (session) {
-        console.log("[Auth Callback] Session established via change event, redirecting to dashboard.");
-        console.log("───────────────────────────────");
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[Auth Callback] Session established via change event, redirecting to dashboard.");
+          console.log("───────────────────────────────");
+        }
         router.replace("/dashboard");
       }
     });

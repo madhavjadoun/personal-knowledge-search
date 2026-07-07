@@ -154,7 +154,9 @@ export default function SettingsPage() {
         const explain = localStorage.getItem(`settings_auto_show_explanation_${user.id}`);
         if (explain) setAutoShowExplanation(explain === "true");
       } catch (err) {
-        console.error("Failed to load settings:", err);
+        if (process.env.NODE_ENV !== "production") {
+          console.error("Failed to load settings:", err);
+        }
       } finally {
         setLoading(false);
       }
@@ -209,7 +211,9 @@ export default function SettingsPage() {
       showToast("Quiz history cleared successfully.");
       setShowHistoryModal(false);
     } catch (err) {
-      console.error(err);
+      if (process.env.NODE_ENV !== "production") {
+        console.error(err);
+      }
       showToast("Failed to clear quiz history.", "error");
     } finally {
       setHistoryLoading(false);
@@ -240,7 +244,9 @@ export default function SettingsPage() {
       await supabase.auth.signOut();
       router.push("/login");
     } catch (err) {
-      console.error(err);
+      if (process.env.NODE_ENV !== "production") {
+        console.error(err);
+      }
       showToast("Failed to delete account data.", "error");
     } finally {
       setAccountLoading(false);

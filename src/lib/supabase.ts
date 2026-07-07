@@ -7,7 +7,9 @@ const supabaseKey = (
 )!;
 
 if (!supabaseUrl || !supabaseKey) {
-  console.warn("⚠️ Supabase env vars missing. Check .env.local");
+  if (process.env.NODE_ENV !== "production") {
+    console.warn("⚠️ Supabase env vars missing. Check .env.local");
+  }
 }
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
