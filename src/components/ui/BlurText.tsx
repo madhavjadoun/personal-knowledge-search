@@ -43,10 +43,10 @@ export default function BlurText({
                 }
           }
           transition={{
-            duration: 1.8,
+            duration: 0.85,
             delay: (index * delay) / 1000,
-            times: [0, 0.55, 1],
-            ease: [0.25, 0.1, 0.25, 1],
+            times: [0, 0.5, 1],
+            ease: [0.22, 1, 0.36, 1],
           }}
           style={{ display: "inline-block", marginRight: "0.25em" }}
         >

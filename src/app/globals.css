@@ -184,6 +184,18 @@
   transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+@media (max-width: 768px) {
+  .global-bg-spotlight {
+    background: radial-gradient(
+      circle 320px at 50% 0%,
+      rgba(210, 210, 255, 0.26) 0%,
+      rgba(150, 150, 220, 0.13) 40%,
+      rgba(100, 100, 180, 0.05) 75%,
+      transparent 100%
+    );
+  }
+}
+
 
 /* ── Dark Vignette edges ── */
 .global-bg-vignette {
@@ -1030,6 +1042,7 @@ next-dev-indicator,
 }
 
 /* ── Dialog card ── */
+/* Default (Light Mode) */
 .lg-card {
   position: relative;
   width: 380px;
@@ -1039,42 +1052,74 @@ next-dev-indicator,
   animation: ios-alert-enter 300ms cubic-bezier(0.28, 0.84, 0.42, 1) forwards;
 
   /* Glass surface — you see the background through it */
-  background: rgba(28, 28, 30, 0.95);
+  background: rgba(255, 255, 255, 0.82);
   
   /* Fallback for standard CSS blur support */
-  backdrop-filter: blur(80px) saturate(210%) brightness(1.08);
-  -webkit-backdrop-filter: blur(80px) saturate(210%) brightness(1.08);
+  backdrop-filter: blur(30px) saturate(190%) brightness(1.05);
+  -webkit-backdrop-filter: blur(30px) saturate(190%) brightness(1.05);
 
   /* Apple WWDC 2025 Liquid Glass material using SVG refraction, specular light & caustics */
-  backdrop-filter: url(#liquid-glass-dark);
-  -webkit-backdrop-filter: url(#liquid-glass-dark);
+  backdrop-filter: url(#liquid-glass-light) blur(30px) saturate(190%) brightness(1.05);
+  -webkit-backdrop-filter: url(#liquid-glass-light) blur(30px) saturate(190%) brightness(1.05);
 
-  /* Fine outer border + deep shadow */
-  border: 0.5px solid rgba(255, 255, 255, 0.22);
+  /* Fine outer border + shadow */
+  border: 0.5px solid rgba(0, 0, 0, 0.12);
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.12),
+    0 20px 60px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.80);
+}
+
+/* Dark Mode card */
+.dark .lg-card {
+  background: rgba(28, 28, 30, 0.85);
+  
+  /* Fallback for standard CSS blur support */
+  backdrop-filter: blur(30px) saturate(190%) brightness(0.9);
+  -webkit-backdrop-filter: blur(30px) saturate(190%) brightness(0.9);
+
+  /* Apple WWDC 2025 Liquid Glass material using SVG refraction, specular light & caustics */
+  backdrop-filter: url(#liquid-glass-dark) blur(30px) saturate(190%) brightness(0.9);
+  -webkit-backdrop-filter: url(#liquid-glass-dark) blur(30px) saturate(190%) brightness(0.9);
+
+  border: 0.5px solid rgba(255, 255, 255, 0.18);
   box-shadow:
     0 0 0 0.5px rgba(0, 0, 0, 0.55),
     0 24px 72px rgba(0, 0, 0, 0.55),
     0 8px 20px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-/* Light mode card */
-:root:not(.dark) .lg-card {
-  background: rgba(242, 242, 247, 0.95);
-  
-  /* Fallback for standard CSS blur support */
-  backdrop-filter: blur(80px) saturate(210%);
-  -webkit-backdrop-filter: blur(80px) saturate(210%);
-
-  /* Apple WWDC 2025 Liquid Glass material using SVG refraction, specular light & caustics */
-  backdrop-filter: url(#liquid-glass-light);
-  -webkit-backdrop-filter: url(#liquid-glass-light);
-
-  border: 0.5px solid rgba(0, 0, 0, 0.14);
-  box-shadow:
-    0 0 0 0.5px rgba(0, 0, 0, 0.12),
-    0 20px 60px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.80);
+/* Responsive adjustment for Mobile screens */
+@media (max-width: 640px) {
+  .lg-card {
+    width: 270px;
+    max-width: calc(100vw - 32px);
+    border-radius: 14px;
+  }
+  .lg-card-content {
+    padding: 20px 16px 16px !important;
+  }
+  .lg-icon {
+    width: 24px;
+    height: 24px;
+    margin-bottom: 8px !important;
+  }
+  .lg-title {
+    font-size: 16px !important;
+    margin-bottom: 4px !important;
+  }
+  .lg-message {
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+  }
+  .lg-btn-row {
+    min-height: 44px !important;
+  }
+  .lg-btn {
+    min-height: 44px !important;
+    font-size: 16px !important;
+  }
 }
 
 /* ── Content area (icon + title + message) ── */
@@ -1098,13 +1143,13 @@ next-dev-indicator,
   margin-bottom: 12px;
 }
 
-.lg-icon-danger  { color: #FF453A; }
-.lg-icon-warning { color: #FFD60A; }
-.lg-icon-neutral { color: rgba(255, 255, 255, 0.75); }
+.lg-icon-danger  { color: #FF3B30; }
+.lg-icon-warning { color: #FF9500; }
+.lg-icon-neutral { color: rgba(0, 0, 0, 0.60); }
 
-:root:not(.dark) .lg-icon-danger  { color: #FF3B30; }
-:root:not(.dark) .lg-icon-warning { color: #FF9500; }
-:root:not(.dark) .lg-icon-neutral { color: rgba(0,0,0,0.60); }
+.dark .lg-icon-danger  { color: #FF453A; }
+.dark .lg-icon-warning { color: #FFD60A; }
+.dark .lg-icon-neutral { color: rgba(255, 255, 255, 0.75); }
 
 /* ── Title ── */
 .lg-title {
@@ -1112,13 +1157,13 @@ next-dev-indicator,
   font-weight: 600;
   line-height: 1.3;
   letter-spacing: -0.022em;
-  color: rgba(255, 255, 255, 0.96);
+  color: rgba(0, 0, 0, 0.90);
   margin: 0 0 5px;
   font-family: var(--font-sans);
 }
 
-:root:not(.dark) .lg-title {
-  color: rgba(0, 0, 0, 0.90);
+.dark .lg-title {
+  color: rgba(255, 255, 255, 0.96);
 }
 
 /* ── Message ── */
@@ -1127,36 +1172,36 @@ next-dev-indicator,
   font-weight: 400;
   line-height: 1.46;
   letter-spacing: -0.008em;
-  color: rgba(255, 255, 255, 0.68);
+  color: rgba(0, 0, 0, 0.60);
   margin: 0;
   font-family: var(--font-sans);
 }
 
-:root:not(.dark) .lg-message {
-  color: rgba(0, 0, 0, 0.60);
+.dark .lg-message {
+  color: rgba(255, 255, 255, 0.68);
 }
 
 /* ── Horizontal divider between content and buttons ── */
 .lg-divider {
   height: 0.5px;
-  background: rgba(255, 255, 255, 0.28);
+  background: rgba(0, 0, 0, 0.12);
   flex-shrink: 0;
 }
 
-:root:not(.dark) .lg-divider {
-  background: rgba(0, 0, 0, 0.20);
+.dark .lg-divider {
+  background: rgba(255, 255, 255, 0.15);
 }
 
 /* ── Vertical divider between side-by-side buttons ── */
 .lg-btn-separator {
-  width: 0.5px;
-  background: rgba(255, 255, 255, 0.28);
+  width: 1px;
+  background: rgba(0, 0, 0, 0.16);
   flex-shrink: 0;
   align-self: stretch;
 }
 
-:root:not(.dark) .lg-btn-separator {
-  background: rgba(0, 0, 0, 0.20);
+.dark .lg-btn-separator {
+  background: rgba(255, 255, 255, 0.20);
 }
 
 /* ── Button row ── */
@@ -1195,47 +1240,49 @@ next-dev-indicator,
 }
 
 .lg-btn:active:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .lg-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.03);
 }
 
-:root:not(.dark) .lg-btn:active:not(:disabled) {
-  background: rgba(0, 0, 0, 0.06);
+.dark .lg-btn:active:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dark .lg-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 /* ── Cancel / secondary — normal weight, muted color ── */
 .lg-btn-secondary {
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(0, 0, 0, 0.65);
   font-weight: 400;
 }
 
-:root:not(.dark) .lg-btn-secondary {
-  color: rgba(0, 0, 0, 0.65);
+.dark .lg-btn-secondary {
+  color: rgba(255, 255, 255, 0.82);
 }
 
 /* ── Primary / OK — iOS blue accent, semibold ── */
 .lg-btn-primary {
-  color: #5AC8FA;
-  font-weight: 600;
-}
-
-:root:not(.dark) .lg-btn-primary {
   color: #007AFF;
   font-weight: 600;
 }
 
+.dark .lg-btn-primary {
+  color: #5AC8FA;
+}
+
 /* ── Destructive — iOS red ── */
 .lg-btn-destructive {
-  color: #FF453A;
+  color: #FF3B30;
   font-weight: 600;
 }
 
-:root:not(.dark) .lg-btn-destructive {
-  color: #FF3B30;
-  font-weight: 600;
+.dark .lg-btn-destructive {
+  color: #FF453A;
 }
 
 /* ── Disabled state ── */

@@ -25,7 +25,18 @@ function AuthCallbackContent() {
       if (process.env.NODE_ENV !== "production") {
         console.error("[Auth Callback] OAuth Error parameter found:", errorParam, errorDescription);
       }
-      const loginUrl = `/login?error=${encodeURIComponent(errorDescription || errorParam)}`;
+      // Map technical OAuth errors to clean user-facing messages
+      let friendlyMessage: string;
+      if (errorParam === "access_denied") {
+        friendlyMessage = "Sign-in cancelled.";
+      } else if (errorParam === "server_error") {
+        friendlyMessage = "Something went wrong. Please try again.";
+      } else if (errorParam === "temporarily_unavailable") {
+        friendlyMessage = "Google sign-in is temporarily unavailable.";
+      } else {
+        friendlyMessage = errorDescription || "Sign-in failed. Please try again.";
+      }
+      const loginUrl = `/login?error=${encodeURIComponent(friendlyMessage)}`;
       router.replace(loginUrl);
       return;
     }

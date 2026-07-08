@@ -33,7 +33,20 @@ function LoginContent() {
     const urlError = searchParams.get("error");
     if (urlError) {
       setErrorMessage(decodeURIComponent(urlError));
+      // Reset the Google loading spinner — user came back from a cancelled OAuth flow
+      setGoogleLoading(false);
     }
+    // Login page is always light mode
+    document.documentElement.classList.remove("dark");
+    // Restore the user's saved theme when leaving this page
+    return () => {
+      try {
+        const saved = localStorage.getItem("theme");
+        if (saved === "dark" || (!saved && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.classList.add("dark");
+        }
+      } catch (_) {}
+    };
   }, [searchParams]);
 
   // Redirect already-authenticated users and listen for OAuth session arrival
@@ -316,23 +329,30 @@ function LoginContent() {
                 </p>
               </div>
 
-              {/* Error Message banner */}
+              {/* Error Message */}
               {errorMessage && (
-                <div className="p-3.5 rounded-[12px] bg-rose-500/10 border border-rose-500/25 text-rose-500 text-xs font-semibold flex items-center gap-2">
-                  <svg className="w-4.5 h-4.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg bg-white border border-[#E2E8F0]" style={{ boxShadow: "0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(239,68,68,0.10)" }}>
+                  {/* Red triangle warning icon */}
+                  <svg className="w-4 h-4 flex-shrink-0 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+                    <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
                   </svg>
-                  <span>{errorMessage}</span>
+                  <p className="text-[12.5px] text-[#1E293B] leading-snug flex-1">{errorMessage}</p>
+                  <button
+                    onClick={() => setErrorMessage("")}
+                    className="flex-shrink-0 text-[#94A3B8] hover:text-[#475569] transition-colors cursor-pointer"
+                    aria-label="Dismiss"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
               )}
 
-              {/* Success Message banner */}
+              {/* Success Message */}
               {successMessage && (
-                <div className="p-3.5 rounded-[12px] bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 text-xs font-semibold flex items-center gap-2">
-                  <svg className="w-4.5 h-4.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                  <span>{successMessage}</span>
+                <div className="flex items-start gap-2 pl-3 border-l-2 border-emerald-500">
+                  <p className="text-[12px] text-emerald-700 leading-snug">{successMessage}</p>
                 </div>
               )}
 

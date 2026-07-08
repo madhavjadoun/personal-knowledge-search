@@ -156,7 +156,6 @@ export default function WelcomePage() {
   /* Welcome page theme initialization */
   useEffect(() => {
     setMounted(true);
-    document.documentElement.classList.remove("dark");
     import("../../public/upload.json").then((mod) => {
       setUploadAnimData(mod.default);
     });
@@ -336,12 +335,12 @@ export default function WelcomePage() {
               >
                 <BlurText
                   text="Turn any document"
-                  delay={40}
+                  delay={25}
                 />{" "}
                 <br className="hidden sm:inline" />
                 <BlurText
                   text="into an AI quiz to"
-                  delay={40}
+                  delay={25}
                   className="mr-2"
                 />
                 <span className="relative inline-block overflow-hidden h-[1.2em] whitespace-nowrap align-bottom text-[var(--indigo-accent)]">
@@ -387,7 +386,7 @@ export default function WelcomePage() {
               <p className="text-[18px] lg:text-[20px] font-normal leading-[1.6] text-[var(--text-2)] mt-6 max-w-[640px]">
                 <BlurText
                   text="Upload searchable or scanned PDFs, lecture slides, and notes. Our OCR pipeline extracts the text, chunks the content, and generates interactive MCQ practice tests in seconds."
-                  delay={45}
+                  delay={25}
                 />
               </p>
 
@@ -396,7 +395,7 @@ export default function WelcomePage() {
             {/* Why QuizGens Section */}
             <div className="space-y-5 pt-8 border-t border-[var(--border)]">
               <h3 className="text-lg font-semibold text-[var(--text-1)] tracking-tight">
-                <BlurText text="Why QuizGens" delay={40} />
+                <BlurText text="Why QuizGens" delay={25} />
               </h3>
               <ul className="space-y-3.5">
                 {[
@@ -411,9 +410,9 @@ export default function WelcomePage() {
                     </svg>
                     <span>
                       <strong className="font-semibold text-[var(--text-1)] mr-1">
-                        <BlurText text={item.bold} delay={30} />
+                        <BlurText text={item.bold} delay={20} />
                       </strong>{" "}
-                      <BlurText text={item.rest} delay={30} />
+                      <BlurText text={item.rest} delay={20} />
                     </span>
                   </li>
                 ))}
@@ -428,7 +427,7 @@ export default function WelcomePage() {
             animate={isHeroInView ? "visible" : "hidden"}
             variants={{
               hidden: { opacity: 0, x: 25, transition: { duration: 0 } },
-              visible: { opacity: 1, x: 0, transition: { type: "spring", damping: 20, stiffness: 80, delay: 0.1 } }
+              visible: { opacity: 1, x: 0, transition: { type: "spring", damping: 22, stiffness: 200, delay: 0.1 } }
             }}
             className="lg:col-span-7 flex flex-col justify-center w-full"
           >
@@ -593,8 +592,8 @@ export default function WelcomePage() {
             opacity: 1,
             y: 0,
             transition: {
-              duration: 0.5,
-              staggerChildren: 0.12
+              duration: 0.38,
+              staggerChildren: 0.08
             }
           }
         }}
@@ -615,7 +614,7 @@ export default function WelcomePage() {
 
           {/* Card 1 */}
           <motion.div
-            variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 20, stiffness: 80 } } }}
+            variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 22, stiffness: 200 } } }}
             className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 w-full lg:flex-1"
           >
             <div className="h-10 w-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[var(--bg-2)] border border-[var(--border)]">
@@ -640,7 +639,7 @@ export default function WelcomePage() {
 
           {/* Card 2 */}
           <motion.div
-            variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 20, stiffness: 80, delay: 0.1 } } }}
+            variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 22, stiffness: 200, delay: 0.1 } } }}
             className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 w-full lg:flex-1"
           >
             <div className="h-10 w-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[var(--bg-2)] border border-[var(--border)]">
@@ -665,7 +664,7 @@ export default function WelcomePage() {
 
           {/* Card 3 */}
           <motion.div
-            variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 20, stiffness: 80, delay: 0.2 } } }}
+            variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 22, stiffness: 200, delay: 0.15 } } }}
             className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 w-full lg:flex-1"
           >
             <div className="h-10 w-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[var(--bg-2)] border border-[var(--border)]">
@@ -690,7 +689,7 @@ export default function WelcomePage() {
 
           {/* Card 4 */}
           <motion.div
-            variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 20, stiffness: 80, delay: 0.3 } } }}
+            variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 22, stiffness: 200, delay: 0.2 } } }}
             className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 w-full lg:flex-1"
           >
             <div className="h-10 w-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[var(--bg-2)] border border-[var(--border)]">
