@@ -14,8 +14,8 @@ export default function PrivacyPage() {
           <h3 className="text-base font-bold text-[var(--text-1)]">Information We Collect</h3>
           <ul className="list-disc pl-5 space-y-1.5 font-medium">
             <li>Name and email address (via Google Authentication)</li>
-            <li>Uploaded PDF documents</li>
-            <li>Generated quizzes and quiz history</li>
+            <li>Uploaded PDF files, study images, whiteboard snaps, and pasted text notes</li>
+            <li>Generated quizzes (MCQ, True/False, and Fill-in-the-Blanks) and history</li>
             <li>Basic usage information required to improve the application</li>
           </ul>
         </div>
@@ -25,7 +25,7 @@ export default function PrivacyPage() {
           <p className="font-medium">Your information is used only to:</p>
           <ul className="list-disc pl-5 space-y-1.5 font-medium">
             <li>Authenticate your account</li>
-            <li>Store uploaded documents securely</li>
+            <li>Store uploaded documents, images, and notes securely</li>
             <li>Generate AI-powered quizzes</li>
             <li>Save your quiz history and progress</li>
             <li>Improve application performance</li>

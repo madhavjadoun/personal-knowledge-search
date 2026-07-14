@@ -139,7 +139,7 @@ export default function SettingsPage() {
       try {
         setLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) { router.push("/login"); return; }
+        if (!user) { router.replace("/login"); return; }
         setUserId(user.id);
         setUserEmail(user.email || "");
 

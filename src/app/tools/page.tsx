@@ -14,32 +14,32 @@ export const metadata: Metadata = {
 const TOOLS_LIST = [
   {
     name: "AI Quiz Generator",
-    href: "/ai-quiz-generator",
+    href: "/chat",
     desc: "The core quiz generator. Ingests PDFs, scanned note sheets, and copied summaries to compile customized quizzes.",
   },
   {
     name: "PDF to MCQ Generator",
-    href: "/pdf-to-mcq-generator",
+    href: "/chat",
     desc: "Converts bulky textbook guides and syllabus PDFs into standard four-option multiple choice sheets.",
   },
   {
     name: "OCR Quiz Generator",
-    href: "/image-to-quiz-generator",
+    href: "/chat",
     desc: "Processes board screenshots, textbook snaps, and handwritten summaries using advanced OCR net scans.",
   },
   {
     name: "Text to Quiz Generator",
-    href: "/text-to-quiz-generator",
+    href: "/chat",
     desc: "Paste direct outlines from Claude summaries, Notion notes, or web paragraphs to generate test questions.",
   },
   {
     name: "True/False Generator",
-    href: "/true-false-generator",
+    href: "/chat",
     desc: "Structures simple binary statement evaluations to verify core conceptual alignment and dates.",
   },
   {
     name: "Fill in the Blanks Generator",
-    href: "/fill-in-the-blanks-generator",
+    href: "/chat",
     desc: "Creates sentence completion sheets to master vocabulary lists, math formulas, and reactions.",
   },
 ];
@@ -95,20 +95,81 @@ export default function ToolsDirectoryPage() {
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-12 lg:px-20 py-16 space-y-12">
         
         {/* Header */}
-        <div className="space-y-4 text-center max-w-2xl mx-auto">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[var(--indigo-accent)]/10 text-[var(--indigo-accent)]">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            QuizGens Suite
-          </span>
-          <h1 className="text-3xl sm:text-5xl font-extrabold text-[var(--text-1)] tracking-tight">
-            Free AI Study & Revision Tools
-          </h1>
-          <p className="text-xs sm:text-sm text-[var(--text-3)] leading-relaxed">
-            Select one of our specialized generators below to convert your files, images, or copy-pasted summaries into structured practice assessments.
-          </p>
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center border-b border-[var(--border)] pb-12">
+          
+          {/* Left Column: Heading & Text */}
+          <div className="md:col-span-7 space-y-6 text-left">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[var(--indigo-accent)]/10 text-[var(--indigo-accent)]">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              </svg>
+              QuizGens Suite
+            </span>
+            <h1 className="text-3xl sm:text-5xl font-extrabold text-[var(--text-1)] tracking-tight leading-tight">
+              Free AI Study & <span className="text-[var(--indigo-accent)]">Revision Tools</span>
+            </h1>
+            <p className="text-xs sm:text-sm text-[var(--text-3)] leading-relaxed max-w-xl font-semibold">
+              Select one of our specialized generators below to convert your files, images, or copy-pasted summaries into structured practice assessments.
+            </p>
+
+            {/* Checklist of Features */}
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[var(--text-3)] font-semibold pt-1">
+              <li className="flex items-center gap-2">
+                <svg className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                PDF & Notes Scanner
+              </li>
+              <li className="flex items-center gap-2">
+                <svg className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                Handwritten OCR Scans
+              </li>
+              <li className="flex items-center gap-2">
+                <svg className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                Multiple Choice Formats
+              </li>
+              <li className="flex items-center gap-2">
+                <svg className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                Instant Study Aid Delivery
+              </li>
+            </ul>
+
+            {/* CTA action buttons */}
+            <div className="pt-2 flex flex-wrap items-center gap-4">
+              <Link 
+                href="/chat"
+                className="grad-btn px-5 py-2.5 rounded-xl text-xs font-bold shadow-xs hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 cursor-pointer"
+              >
+                Get Started Free →
+              </Link>
+              <span className="text-xs text-[var(--text-4)] font-semibold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                No credit card required
+              </span>
+            </div>
+          </div>
+
+          {/* Right Column: Illustration SVG */}
+          <div className="md:col-span-5 flex justify-center">
+            <div 
+              className="relative w-full max-w-[310px] lg:max-w-[350px] aspect-square bg-white border border-[var(--border)] p-5 shadow-xs flex items-center justify-center overflow-hidden"
+              style={{ borderRadius: "28px" }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img 
+                src="/tools-header.svg" 
+                alt="AI Tools Directory Illustration" 
+                className="w-full h-full object-contain relative z-10 transition-transform duration-500 hover:scale-105"
+              />
+            </div>
+          </div>
+
         </div>
 
         {/* Grid list */}

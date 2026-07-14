@@ -27,14 +27,7 @@ export default function PublicPageHeader() {
     }
   };
 
-  const navLinks = [
-    { name: "Features", href: "/#features" },
-    { name: "Blog", href: "/blog" },
-    { name: "PDF to MCQ", href: "/pdf-to-mcq-generator" },
-    { name: "Image to Quiz", href: "/image-to-quiz-generator" },
-    { name: "Text to Quiz", href: "/text-to-quiz-generator" },
-    { name: "MCQ Generator", href: "/mcq-generator" },
-  ];
+  const navLinks: { name: string; href: string }[] = [];
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[var(--border)] bg-[var(--bg)]/80 backdrop-blur-md transition-colors duration-200">

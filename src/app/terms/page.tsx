@@ -14,7 +14,7 @@ export default function TermsPage() {
           <h3 className="text-base font-bold text-[var(--text-1)]">Acceptable Use</h3>
           <p className="font-medium">You agree to:</p>
           <ul className="list-disc pl-5 space-y-1.5 font-medium">
-            <li>Upload only documents you own or have permission to use.</li>
+            <li>Upload only documents, images, whiteboard captures, or pasted notes you own or have permission to use.</li>
             <li>Use the platform for educational and learning purposes.</li>
             <li>Avoid uploading harmful or illegal content.</li>
           </ul>

@@ -5,16 +5,20 @@ import { useState } from "react";
 
 const FAQ_ITEMS = [
   {
-    q: "What file types are supported?",
-    a: "Currently PDF documents are supported, including searchable and scanned PDFs."
+    q: "What file types and study inputs are supported?",
+    a: "You can upload PDF documents, scanned textbook images, whiteboard screenshots (PNG, JPG, JPEG), or directly paste your copy-pasted text notes."
+  },
+  {
+    q: "Which quiz formats can I create?",
+    a: "QuizGens supports Multiple Choice Questions (MCQs), True/False evaluations, and sentence Fill in the Blanks formats."
   },
   {
     q: "How many questions can I generate?",
-    a: "You can generate between 5 and 50 AI-generated multiple choice questions per quiz."
+    a: "You can customize your desired number of questions in your settings page or directly in the chat generation window."
   },
   {
-    q: "Are scanned PDFs supported?",
-    a: "Yes. OCR is used to extract text from scanned documents."
+    q: "Are scanned documents and screenshots supported?",
+    a: "Yes. Advanced OCR scanner models extract text from scanned worksheets, photos of notes, and presentation slides."
   },
   {
     q: "Which AI model is used?",
@@ -60,7 +64,9 @@ export default function FAQPage() {
                 className="w-full text-left px-4 sm:px-6 py-4 flex justify-between items-start gap-3 sm:gap-4 hover:bg-[var(--bg-2)]/30 transition-colors cursor-pointer"
               >
                 <div className="flex gap-3 text-sm font-bold text-[var(--text-1)] min-w-0 flex-1">
-                  <span className="text-[var(--indigo)] select-none flex-shrink-0 w-5">0{idx + 1}</span>
+                  <span className="text-[var(--indigo)] select-none flex-shrink-0 w-5">
+                    {idx + 1 < 10 ? `0${idx + 1}` : idx + 1}
+                  </span>
                   <span className="break-words">{item.q}</span>
                 </div>
                 <span className={`text-[var(--text-3)] transition-transform duration-200 mt-0.5 ${isOpen ? "rotate-180" : ""}`}>

@@ -221,9 +221,9 @@ export default function WelcomePage() {
       formData.append("file", file);
       formData.append("user_id", user.id);
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 
-        (process.env.NODE_ENV === "production" 
-          ? "https://quizgenerator-production.up.railway.app" 
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ||
+        (process.env.NODE_ENV === "production"
+          ? "https://quizgenerator-production.up.railway.app"
           : "http://127.0.0.1:8000");
       const uploadUrl = `${apiUrl}/documents/upload`;
       const uploadHeaders = {
@@ -244,7 +244,7 @@ export default function WelcomePage() {
           if (errObj && typeof errObj === "object" && "detail" in errObj) {
             errMsg = String(errObj.detail);
           }
-        } catch {}
+        } catch { }
         throw new Error(errMsg || `Document upload/processing failed with status: ${processResponse.status}`);
       }
 
@@ -398,10 +398,10 @@ export default function WelcomePage() {
               </h3>
               <ul className="space-y-3.5">
                 {[
-                  { bold: "Generates accurate quizzes", rest: "from your study material." },
-                  { bold: "Supports searchable", rest: "and scanned PDFs." },
-                  { bold: "Fast, private,", rest: "and reliable." },
-                  { bold: "Built for students", rest: "and educators." }
+                  { bold: "Generates accurate quizzes", rest: "from your study materials." },
+                  { bold: "Supports PDFs, images & notes", rest: "whiteboard scans, and pasted notes." },
+                  { bold: "Multiple formats supported", rest: "MCQs, True/False, and Fill-in-the-Blanks." },
+                  { bold: "Fast, private & reliable", rest: "and optimized for active recall study." }
                 ].map((item, idx) => (
                   <li key={idx} className="flex items-start gap-2.5 text-sm text-[var(--text-3)]">
                     <svg className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -441,7 +441,7 @@ export default function WelcomePage() {
                     AI Quiz Generator
                   </h3>
                   <p className="text-[10px] text-[var(--text-3)] mt-0.5 break-words">
-                    Select searchable or scanned PDFs to generate practice tests.
+                    Select PDFs, study images, or notes to generate practice tests.
                   </p>
                 </div>
 
@@ -523,13 +523,13 @@ export default function WelcomePage() {
                         )}
                       </div>
                       <p className="text-xs font-semibold text-[var(--text-2)]">
-                        {dragging ? "Release to drop file" : "Drag and drop your PDF here"}
+                        {dragging ? "Release to drop file" : "Drag and drop your files here"}
                       </p>
                       <p className="text-[10px] text-[var(--text-4)] mt-0.5">
                         or click to browse local files
                       </p>
                       <span className="text-[8px] font-mono bg-[var(--bg-3)] px-2 py-0.5 rounded mt-3 text-[var(--text-3)]">
-                        Searchable & Scanned PDFs (Max 25MB)
+                        PDF, Image or Study Notes (Max 25MB)
                       </span>
                     </div>
                   )}
@@ -563,10 +563,10 @@ export default function WelcomePage() {
                   </h4>
                   <ul className="space-y-3">
                     {[
-                      "Use clear, readable PDFs for the best results.",
-                      "Scanned notes and documents are fully supported.",
+                      "Use clear PDFs, images, or study notes for best results.",
+                      "OCR handles handwriting and scanned pages perfectly.",
                       "Larger files may take slightly longer to process.",
-                      "Generates high-quality interactive quizzes automatically.",
+                      "Generates MCQs, True/False, and Blank formats.",
                       "Download your quiz and start practicing instantly."
                     ].map((tip, idx) => (
                       <li key={idx} className="flex items-start gap-2.5 text-xs text-[var(--text-3)] leading-relaxed">
@@ -584,628 +584,336 @@ export default function WelcomePage() {
           </motion.div>
         </div>
 
-      {/* How It Works Section */}
-      <motion.div
-        ref={sectionRef}
-        initial="hidden"
-        animate={isSectionInView ? "visible" : "hidden"}
-        variants={{
-          hidden: { opacity: 0, y: 15, transition: { duration: 0 } },
-          visible: {
-            opacity: 1,
-            y: 0,
-            transition: {
-              duration: 0.38,
-              staggerChildren: 0.08
+        {/* How It Works Section */}
+        <motion.div
+          ref={sectionRef}
+          initial="hidden"
+          animate={isSectionInView ? "visible" : "hidden"}
+          variants={{
+            hidden: { opacity: 0, y: 15, transition: { duration: 0 } },
+            visible: {
+              opacity: 1,
+              y: 0,
+              transition: {
+                duration: 0.38,
+                staggerChildren: 0.08
+              }
             }
-          }
-        }}
-        className="w-full mt-16 sm:mt-24 space-y-10 relative"
-      >
-        {/* Section Header */}
-        <div className="text-center space-y-2.5">
-          <h3 className="text-lg font-semibold text-[var(--text-1)] tracking-tight">
-            How It Works
-          </h3>
-          <p className="text-xs text-[var(--text-3)] max-w-lg mx-auto">
-            Turn any document into high-yield interactive practice tests in four simple steps
-          </p>
-        </div>
-
-        {/* Cards — single unified layout */}
-        <div className="flex flex-col lg:flex-row items-center gap-4">
-
-          {/* Card 1 */}
-          <motion.div
-            variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 22, stiffness: 200 } } }}
-            className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 w-full lg:flex-1"
-          >
-            <div className="h-10 w-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[var(--bg-2)] border border-[var(--border)]">
-              <Image src="/how-it-works-1.png" alt="Upload" width={20} height={20} className="object-contain dark:invert" />
-            </div>
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-[var(--text-1)]">Upload Learning Material</h4>
-              <p className="text-[11px] text-[var(--text-3)] leading-relaxed">Supports searchable and scanned PDFs</p>
-            </div>
-          </motion.div>
-
-          {/* Arrow 1 — desktop only */}
-          <motion.div
-            className="hidden lg:block flex-shrink-0"
-            animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.2, 0.8], filter: ["drop-shadow(0 0 0px transparent)", "drop-shadow(0 0 8px var(--text-1))", "drop-shadow(0 0 0px transparent)"] }}
-            transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: 0 }}
-          >
-            <svg className="w-7 h-7 text-[var(--text-1)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-            </svg>
-          </motion.div>
-
-          {/* Card 2 */}
-          <motion.div
-            variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 22, stiffness: 200, delay: 0.1 } } }}
-            className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 w-full lg:flex-1"
-          >
-            <div className="h-10 w-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[var(--bg-2)] border border-[var(--border)]">
-              <Image src="/how-it-works-2.png" alt="Processing" width={20} height={20} className="object-contain dark:invert" />
-            </div>
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-[var(--text-1)]">AI Processing</h4>
-              <p className="text-[11px] text-[var(--text-3)] leading-relaxed">OCR + smart text extraction</p>
-            </div>
-          </motion.div>
-
-          {/* Arrow 2 — desktop only */}
-          <motion.div
-            className="hidden lg:block flex-shrink-0"
-            animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.2, 0.8], filter: ["drop-shadow(0 0 0px transparent)", "drop-shadow(0 0 8px var(--text-1))", "drop-shadow(0 0 0px transparent)"] }}
-            transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
-          >
-            <svg className="w-7 h-7 text-[var(--text-1)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-            </svg>
-          </motion.div>
-
-          {/* Card 3 */}
-          <motion.div
-            variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 22, stiffness: 200, delay: 0.15 } } }}
-            className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 w-full lg:flex-1"
-          >
-            <div className="h-10 w-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[var(--bg-2)] border border-[var(--border)]">
-              <Image src="/how-it-works-3.png" alt="Generate" width={20} height={20} className="object-contain dark:invert" />
-            </div>
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-[var(--text-1)]">Generate Quiz</h4>
-              <p className="text-[11px] text-[var(--text-3)] leading-relaxed">Create AI-generated interactive quizzes</p>
-            </div>
-          </motion.div>
-
-          {/* Arrow 3 — desktop only */}
-          <motion.div
-            className="hidden lg:block flex-shrink-0"
-            animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.2, 0.8], filter: ["drop-shadow(0 0 0px transparent)", "drop-shadow(0 0 8px var(--text-1))", "drop-shadow(0 0 0px transparent)"] }}
-            transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: 1.6 }}
-          >
-            <svg className="w-7 h-7 text-[var(--text-1)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-            </svg>
-          </motion.div>
-
-          {/* Card 4 */}
-          <motion.div
-            variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 22, stiffness: 200, delay: 0.2 } } }}
-            className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 w-full lg:flex-1"
-          >
-            <div className="h-10 w-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[var(--bg-2)] border border-[var(--border)]">
-              <Image src="/how-it-works-4.png" alt="Learn" width={20} height={20} className="object-contain dark:invert" />
-            </div>
-            <div className="space-y-1">
-              <h4 className="text-sm font-bold text-[var(--text-1)]">Practice & Learn</h4>
-              <p className="text-[11px] text-[var(--text-3)] leading-relaxed">Instant scoring with explanations</p>
-            </div>
-          </motion.div>
-        </div>
-      </motion.div>
-
-      {/* Latest Learning Guides Section */}
-      <div className="w-full mt-24 sm:mt-32 max-w-7xl mx-auto px-4 sm:px-12 lg:px-20 space-y-12 relative z-10">
-        <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 border-b border-[var(--border)] pb-6">
-          <div className="space-y-2 text-left">
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-[var(--indigo-accent)]/10 text-[var(--indigo-accent)]">
-              Learning Portal
-            </span>
-            <h3 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-1)] tracking-tight">Latest Learning Guides</h3>
-            <p className="text-xs text-[var(--text-3)] max-w-md">Master active recall, document scanning, and AI study workflows with our expert guides.</p>
+          }}
+          className="w-full mt-16 sm:mt-24 space-y-10 relative"
+        >
+          {/* Section Header */}
+          <div className="text-center space-y-2.5">
+            <h3 className="text-lg font-semibold text-[var(--text-1)] tracking-tight">
+              How It Works
+            </h3>
+            <p className="text-xs text-[var(--text-3)] max-w-lg mx-auto">
+              Turn any document into high-yield interactive practice tests in four simple steps
+            </p>
           </div>
-          <button
-            onClick={() => router.push("/blog")}
-            className="text-xs font-bold text-[var(--indigo-accent)] hover:text-[var(--text-1)] hover:underline flex items-center gap-1.5 cursor-pointer flex-shrink-0 transition-colors"
-          >
-            View All Guides <span>→</span>
-          </button>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            {
-              slug: "best-ai-quiz-generator",
-              title: "Best AI Quiz Generator Guide",
-              desc: "Compare specialized AI quiz makers against general chat models like ChatGPT to see what fits your syllabus.",
-              badge: "Revision",
-              readTime: "5 min read",
-              visual: (
-                <div className="w-full h-full relative flex items-center justify-center bg-gradient-to-tr from-indigo-500/10 to-purple-600/5">
-                  <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_30%_30%,var(--indigo-accent)_0%,transparent_60%)]" />
-                  {/* Floating abstract network */}
-                  <div className="relative w-20 h-20 flex items-center justify-center">
-                    <motion.div
-                      className="absolute w-12 h-12 rounded-full border border-dashed border-[var(--indigo-accent)]/40"
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-                    />
-                    <motion.div
-                      className="absolute w-6 h-6 rounded-full border border-dashed border-purple-500/50"
-                      animate={{ rotate: -360 }}
-                      transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-                    />
-                    <div className="w-8 h-8 rounded-xl bg-[var(--surface)] border border-[var(--border)] shadow-xs flex items-center justify-center text-indigo-500 relative z-10 p-1.5">
-                      <svg className="w-full h-full" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                      </svg>
-                    </div>
-                    {/* Orbiting nodes */}
-                    <div className="absolute top-1 left-1 w-2.5 h-2.5 rounded-full bg-[var(--indigo-accent)] shadow-xs" />
-                    <div className="absolute bottom-1 right-1 w-2 h-2 rounded-full bg-purple-500 shadow-xs" />
-                  </div>
-                </div>
-              )
-            },
-            {
-              slug: "generate-quiz-from-pdf",
-              title: "Generate Quiz from PDF Textbook",
-              desc: "A complete step-by-step walkthrough on turning heavy textbooks and slides into targeted revision test sets.",
-              badge: "PDF Ingestion",
-              readTime: "6 min read",
-              visual: (
-                <div className="w-full h-full relative flex items-center justify-center bg-gradient-to-tr from-blue-500/10 to-indigo-600/5">
-                  <div className="relative w-24 h-16 bg-[var(--surface)] border border-[var(--border)] rounded-lg p-2.5 shadow-xs flex flex-col justify-between overflow-hidden">
-                    {/* Mock document lines */}
-                    <div className="space-y-1">
-                      <div className="w-3/4 h-1.5 rounded-sm bg-[var(--bg-3)]" />
-                      <div className="w-full h-1.5 rounded-sm bg-[var(--bg-2)]" />
-                      <div className="w-5/6 h-1.5 rounded-sm bg-[var(--bg-2)]" />
-                    </div>
-                    <div className="flex items-center justify-between border-t border-[var(--border)] pt-1.5">
-                      <span className="text-[7px] font-bold text-[var(--indigo-accent)]">PAGE 12</span>
-                      <span className="text-[7px] font-extrabold px-1 rounded bg-red-500/10 text-red-500 scale-90">.PDF</span>
-                    </div>
-                  </div>
-                </div>
-              )
-            },
-            {
-              slug: "convert-images-into-quizzes-using-ocr",
-              title: "Convert Handwritten Notes via OCR",
-              desc: "Learn how QuizGens extracts handwritings, whiteboard files, and textbook photos with smart preprocessors.",
-              badge: "OCR Scanner",
-              readTime: "7 min read",
-              visual: (
-                <div className="w-full h-full relative flex items-center justify-center bg-gradient-to-tr from-emerald-500/10 to-teal-600/5 overflow-hidden">
-                  {/* Mock handwritten sheet with scanner line */}
-                  <div className="relative w-24 h-16 bg-[var(--surface)] border border-[var(--border)] rounded-lg p-2.5 shadow-xs flex flex-col justify-between overflow-hidden">
-                    <div className="space-y-1">
-                      <div className="w-2/3 h-1.5 rounded-sm bg-emerald-500/20" />
-                      <div className="w-full h-1.5 rounded-sm bg-emerald-500/10" />
-                      <div className="w-3/4 h-1.5 rounded-sm bg-emerald-500/10" />
-                    </div>
-                    <div className="flex items-center justify-between border-t border-[var(--border)] pt-1.5">
-                      <span className="text-[7px] font-bold text-emerald-600">SCANNER</span>
-                      <span className="text-[7px] font-extrabold px-1 rounded bg-emerald-500/10 text-emerald-600 scale-90">OCR</span>
-                    </div>
-                    {/* Sweeping Laser scanner line */}
-                    <motion.div
-                      className="absolute left-0 right-0 h-0.5 bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
-                      animate={{ y: [-5, 60, -5] }}
-                      transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
-                    />
-                  </div>
-                </div>
-              )
-            }
-          ].map((g, idx) => (
+          {/* Cards — single unified layout */}
+          <div className="flex flex-col lg:flex-row items-center gap-4">
+
+            {/* Card 1 */}
             <motion.div
-              key={g.slug}
-              variants={{
-                hidden: { opacity: 0, y: 30 },
-                visible: {
-                  opacity: 1,
-                  y: 0,
-                  transition: { type: "spring", damping: 20, stiffness: 120, delay: idx * 0.1 }
-                }
-              }}
-              onClick={() => router.push(`/blog/${g.slug}`)}
-              className="bg-[var(--surface-2)]/40 backdrop-blur-md border border-[var(--border)] rounded-2xl overflow-hidden flex flex-col h-full shadow-xs hover:border-[var(--indigo-accent)]/30 hover:shadow-[0_20px_40px_-15px_rgba(99,102,241,0.12)] transition-all duration-300 cursor-pointer group"
+              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 22, stiffness: 200 } } }}
+              className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 w-full lg:flex-1"
             >
-              {/* Visual Card Graphic */}
-              <div className="w-full h-32 relative border-b border-[var(--border)] overflow-hidden">
-                {g.visual}
+              <div className="h-10 w-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[var(--bg-2)] border border-[var(--border)]">
+                <Image src="/how-it-works-1.png" alt="Upload" width={20} height={20} className="object-contain dark:invert" />
               </div>
-
-              {/* Card Body */}
-              <div className="p-5 flex flex-col justify-between flex-1 space-y-4">
-                <div className="space-y-2 text-left">
-                  <div className="flex items-center justify-between text-[9px] font-extrabold text-[var(--text-4)] uppercase tracking-wider">
-                    <span className="px-2 py-0.5 rounded bg-[var(--indigo-accent)]/10 text-[var(--indigo-accent)]">
-                      {g.badge}
-                    </span>
-                    <span>{g.readTime}</span>
-                  </div>
-                  <h4 className="text-xs sm:text-sm font-extrabold text-[var(--text-1)] tracking-tight leading-snug group-hover:text-[var(--indigo-accent)] transition-colors duration-200">
-                    {g.title}
-                  </h4>
-                  <p className="text-[11px] text-[var(--text-3)] leading-relaxed font-semibold">
-                    {g.desc}
-                  </p>
-                </div>
-
-                <div className="pt-3 border-t border-[var(--border)] flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-4 h-4 rounded-full bg-[var(--indigo-accent)]/10 text-[8px] font-bold text-[var(--indigo-accent)] flex items-center justify-center">
-                      MJ
-                    </div>
-                    <span className="text-[10px] font-bold text-[var(--text-2)]">Madhav</span>
-                  </div>
-                  <span className="text-[10px] font-bold text-[var(--indigo-accent)] flex items-center gap-0.5 group-hover:translate-x-1 transition-transform">
-                    Read Guide <span>→</span>
-                  </span>
-                </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-[var(--text-1)]">Upload Learning Material</h4>
+                <p className="text-[11px] text-[var(--text-3)] leading-relaxed">Supports PDFs, study images, or text notes</p>
               </div>
             </motion.div>
-          ))}
-        </div>
-      </div>
 
-      <footer className="w-full text-[var(--text-1)] mt-24 sm:mt-32">
-        <style dangerouslySetInnerHTML={{ __html: `
-          .custom-page-footer-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 40px;
-            align-items: start;
-          }
-          @media (min-width: 1024px) {
-            .custom-page-footer-grid {
-              grid-template-columns: 1.8fr 1fr 1fr !important;
-              gap: 80px !important;
-            }
-          }
-          .custom-page-footer-container {
-            max-width: 1400px !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
-            padding: 40px 16px !important;
-            width: 100%;
-          }
-          @media (min-width: 640px) {
-            .custom-page-footer-container {
-              padding: 60px 24px !important;
-            }
-          }
-          @media (min-width: 1024px) {
-            .custom-page-footer-container {
-              padding: 80px 40px !important;
-            }
-          }
-        `}} />
-        <div className="custom-page-footer-container">
-          <div className="custom-page-footer-grid">
-            
-            {/* Column 1: Logo + Brand + Description + Socials */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="flex-shrink-0" style={{ height: '24px', width: '24px', maxWidth: '90px' }}>
-                  <LogoSVG
-                    type="icon"
-                    animate={false}
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-                <span className="text-base font-bold tracking-tight text-[var(--text-1)]">
+            {/* Arrow 1 — desktop only */}
+            <motion.div
+              className="hidden lg:block flex-shrink-0"
+              animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.2, 0.8], filter: ["drop-shadow(0 0 0px transparent)", "drop-shadow(0 0 8px var(--text-1))", "drop-shadow(0 0 0px transparent)"] }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: 0 }}
+            >
+              <svg className="w-7 h-7 text-[var(--text-1)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+            </motion.div>
+
+            {/* Card 2 */}
+            <motion.div
+              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 22, stiffness: 200, delay: 0.1 } } }}
+              className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 w-full lg:flex-1"
+            >
+              <div className="h-10 w-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[var(--bg-2)] border border-[var(--border)]">
+                <Image src="/how-it-works-2.png" alt="Processing" width={20} height={20} className="object-contain dark:invert" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-[var(--text-1)]">AI Processing</h4>
+                <p className="text-[11px] text-[var(--text-3)] leading-relaxed">OCR + smart text extraction</p>
+              </div>
+            </motion.div>
+
+            {/* Arrow 2 — desktop only */}
+            <motion.div
+              className="hidden lg:block flex-shrink-0"
+              animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.2, 0.8], filter: ["drop-shadow(0 0 0px transparent)", "drop-shadow(0 0 8px var(--text-1))", "drop-shadow(0 0 0px transparent)"] }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
+            >
+              <svg className="w-7 h-7 text-[var(--text-1)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+            </motion.div>
+
+            {/* Card 3 */}
+            <motion.div
+              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 22, stiffness: 200, delay: 0.15 } } }}
+              className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 w-full lg:flex-1"
+            >
+              <div className="h-10 w-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[var(--bg-2)] border border-[var(--border)]">
+                <Image src="/how-it-works-3.png" alt="Generate" width={20} height={20} className="object-contain dark:invert" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-[var(--text-1)]">Generate Quiz</h4>
+                <p className="text-[11px] text-[var(--text-3)] leading-relaxed">Create MCQs, T/F, or Fill in the Blanks</p>
+              </div>
+            </motion.div>
+
+            {/* Arrow 3 — desktop only */}
+            <motion.div
+              className="hidden lg:block flex-shrink-0"
+              animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.2, 0.8], filter: ["drop-shadow(0 0 0px transparent)", "drop-shadow(0 0 8px var(--text-1))", "drop-shadow(0 0 0px transparent)"] }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: 1.6 }}
+            >
+              <svg className="w-7 h-7 text-[var(--text-1)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+              </svg>
+            </motion.div>
+
+            {/* Card 4 */}
+            <motion.div
+              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: "spring", damping: 22, stiffness: 200, delay: 0.2 } } }}
+              className="bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-6 flex flex-row lg:flex-col items-center lg:items-center text-left lg:text-center gap-4 lg:gap-0 lg:space-y-4 w-full lg:flex-1"
+            >
+              <div className="h-10 w-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-[var(--bg-2)] border border-[var(--border)]">
+                <Image src="/how-it-works-4.png" alt="Learn" width={20} height={20} className="object-contain dark:invert" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-[var(--text-1)]">Practice & Learn</h4>
+                <p className="text-[11px] text-[var(--text-3)] leading-relaxed">Instant scoring with explanations</p>
+              </div>
+            </motion.div>
+          </div>
+        </motion.div>
+
+
+        <footer className="w-full bg-[var(--surface-2)] border-t border-[var(--border)] py-20 md:py-28 mt-24 sm:mt-32 transition-colors duration-200">
+          <div className="max-w-[1400px] mx-auto px-6 lg:px-20">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 items-start">
+
+              {/* Column 1: Logo & Brand Description */}
+              <div className="md:col-span-6 space-y-3">
+                <span className="font-serif text-3xl font-bold tracking-tight text-[var(--text-1)] select-none">
                   Quiz<span style={{ color: '#0d9488' }}>Gens</span>
                 </span>
+                <p className="text-xs text-[var(--text-3)] font-normal leading-relaxed max-w-[280px]">
+                  © {new Date().getFullYear()} QuizGens. Dedicated to the pursuit of knowledge.
+                </p>
               </div>
-              <p 
-                className="text-sm text-[var(--text-3)] leading-relaxed font-normal"
-                style={{ 
-                  maxWidth: '340px', 
-                  whiteSpace: 'normal', 
-                  wordBreak: 'normal', 
-                  overflowWrap: 'break-word' 
+
+              {/* Column 2: FEATURES */}
+              <div className="md:col-span-3 space-y-4">
+                <h5 className="text-[11px] font-extrabold uppercase tracking-widest text-[var(--text-1)]" style={{ letterSpacing: '0.1em' }}>
+                  Features
+                </h5>
+                <ul className="space-y-3 text-[13px] font-medium text-[var(--text-3)] select-none">
+                  <li>Smart Generation</li>
+                  <li>Adaptive Learning</li>
+                  <li>Analytics</li>
+                  <li>Intelligent OCR</li>
+                  <li>Instant Explanations</li>
+                </ul>
+              </div>
+
+              {/* Column 3: RESOURCES */}
+              <div className="md:col-span-3 space-y-4">
+                <h5 className="text-[11px] font-extrabold uppercase tracking-widest text-[var(--text-1)]" style={{ letterSpacing: '0.1em' }}>
+                  Resources
+                </h5>
+                <ul className="space-y-3 font-semibold text-xs">
+                  <li>
+                    <FooterLink
+                      href="/tools"
+                      text="Tools Directory"
+                    />
+                  </li>
+                  <li>
+                    <FooterLink
+                      href="/faq"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      text="FAQ Help"
+                    />
+                  </li>
+                  <li>
+                    <FooterLink
+                      href="/privacy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      text="Privacy Policy"
+                    />
+                  </li>
+                  <li>
+                    <FooterLink
+                      href="/terms"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      text="Terms of Service"
+                    />
+                  </li>
+                  <li>
+                    <FooterLink
+                      href="/contact"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      text="Contact"
+                    />
+                  </li>
+                </ul>
+              </div>
+
+            </div>
+          </div>
+        </footer>
+      </motion.div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="fixed bottom-5 right-5 z-50 flex items-start gap-3 rounded-xl animate-in fade-in slide-in-from-bottom-4 duration-300 overflow-hidden sm:max-w-sm"
+          style={{
+            background: "var(--surface-2)",
+            border: "1px solid var(--border-strong)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10)",
+          }}
+        >
+          {/* Left accent stripe */}
+          <span
+            className="absolute left-0 top-0 bottom-0 w-1 flex-shrink-0"
+            style={{
+              background:
+                toast.type === "success"
+                  ? "#10b981"
+                  : toast.type === "warning"
+                    ? "#f59e0b"
+                    : "#ef4444",
+            }}
+            aria-hidden="true"
+          />
+
+          {/* Pad content away from stripe */}
+          <div className="flex items-start gap-3 pl-5 pr-4 py-4 w-full">
+            {/* Icon */}
+            <span className="mt-0.5 flex-shrink-0">
+              {toast.type === "success" && (
+                <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="#10b981" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              )}
+              {toast.type === "warning" && (
+                <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="#f59e0b" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              )}
+              {toast.type === "error" && (
+                <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="#ef4444" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                </svg>
+              )}
+            </span>
+
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <p
+                className="text-sm font-semibold leading-tight"
+                style={{ color: "var(--text-1)" }}
+              >
+                {toast.title}
+              </p>
+              {toast.subtitle && (
+                <p
+                  className="text-xs mt-1 leading-snug"
+                  style={{ color: "var(--text-2)" }}
+                >
+                  {toast.subtitle}
+                </p>
+              )}
+              {toast.action && (
+                <button
+                  onClick={() => { setToast(null); fileRef.current?.click(); }}
+                  className="mt-2 text-xs font-semibold underline-offset-2 hover:underline focus:outline-none cursor-pointer transition-colors"
+                  style={{ color: "var(--indigo-accent)" }}
+                >
+                  {toast.action}
+                </button>
+              )}
+            </div>
+
+            {/* Dismiss */}
+            <button
+              onClick={() => setToast(null)}
+              className="flex-shrink-0 transition-colors cursor-pointer rounded p-0.5 -mr-0.5"
+              style={{ color: "var(--text-3)" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "var(--text-1)")}
+              onMouseLeave={e => (e.currentTarget.style.color = "var(--text-3)")}
+              aria-label="Dismiss notification"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Centered Authentication Required Modal */}
+      {showAuthModal && (
+        <div className="lg-backdrop" onClick={() => setShowAuthModal(false)}>
+          <div className="lg-card" onClick={e => e.stopPropagation()}>
+            <div className="lg-card-content">
+              <div className="lg-icon lg-icon-neutral">
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                </svg>
+              </div>
+              <h3 className="lg-title">Sign in to continue</h3>
+              <p className="lg-message">
+                Upload PDFs, generate AI quizzes and sync your progress securely across all devices.
+              </p>
+            </div>
+            <div className="lg-divider" />
+            <div className="lg-btn-row">
+              <button className="lg-btn lg-btn-secondary" onClick={() => setShowAuthModal(false)}>
+                Not Now
+              </button>
+              <div className="lg-btn-separator" />
+              <button
+                className="lg-btn lg-btn-primary"
+                onClick={() => {
+                  setShowAuthModal(false);
+                  router.push("/login");
                 }}
               >
-                Generate high-quality AI practice quizzes from searchable and scanned PDFs with intelligent text extraction.
-              </p>
-              
-              {/* Social icons row below description */}
-              <div className="flex items-center gap-[16px] pt-2">
-                <a 
-                  href="https://github.com/madhavjadoun" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="flex items-center justify-center h-9 w-9 rounded-lg bg-[var(--bg-2)] border border-[var(--border)] text-[var(--text-3)] hover:text-[var(--text-1)] hover:border-[var(--text-2)] hover:bg-[var(--bg-3)] transition-all duration-200"
-                  aria-label="GitHub"
-                >
-                  <svg className="w-4.5 h-4.5" fill="currentColor" viewBox="0 0 24 24">
-                    <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.167 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.137 20.164 22 16.418 22 12c0-5.523-4.477-10-10-10z" />
-                  </svg>
-                </a>
-                
-                <a 
-                  href="mailto:support@quizgens.tech" 
-                  className="flex items-center justify-center h-9 w-9 rounded-lg bg-[var(--bg-2)] border border-[var(--border)] text-[var(--text-3)] hover:text-[var(--text-1)] hover:border-[var(--text-2)] hover:bg-[var(--bg-3)] transition-all duration-200"
-                  aria-label="Email"
-                >
-                  <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                </a>
-
-                <a 
-                  href="https://linkedin.com" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="flex items-center justify-center h-9 w-9 rounded-lg bg-[var(--bg-2)] border border-[var(--border)] text-[var(--text-3)] hover:text-[var(--text-1)] hover:border-[var(--text-2)] hover:bg-[var(--bg-3)] transition-all duration-200"
-                  aria-label="LinkedIn"
-                >
-                  <svg className="w-4.5 h-4.5" fill="currentColor" viewBox="0 0 24 24">
-                    <path fillRule="evenodd" d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.779-1.75-1.75s.784-1.75 1.75-1.75 1.75.779 1.75 1.75-.784 1.75-1.75 1.75zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" clipRule="evenodd" />
-                  </svg>
-                </a>
-              </div>
-
-              {/* Product Hunt Review Badge */}
-              <div className="pt-3">
-                <a 
-                  href="https://www.producthunt.com/products/quizgens/reviews/new?utm_source=badge-product_review&utm_medium=badge&utm_source=badge-quizgens" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="inline-block transition-transform hover:scale-[1.02] duration-200"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img 
-                    src="/ph-light.svg" 
-                    alt="QuizGens - Generate AI-powered quizzes from PDFs in seconds. | Product Hunt" 
-                    style={{ width: "250px", height: "54px" }} 
-                    width={250} 
-                    height={54} 
-                    className="block dark:hidden"
-                  />
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img 
-                    src="/ph-dark.svg" 
-                    alt="QuizGens - Generate AI-powered quizzes from PDFs in seconds. | Product Hunt" 
-                    style={{ width: "250px", height: "54px" }} 
-                    width={250} 
-                    height={54} 
-                    className="hidden dark:block"
-                  />
-                </a>
-              </div>
-            </div>
-
-            {/* Column 2: FEATURES */}
-            <div className="custom-footer-col-min space-y-4">
-              <h5 className="text-xs font-bold uppercase tracking-wider text-[var(--text-1)]" style={{ letterSpacing: '0.1em' }}>
-                Features
-              </h5>
-              <ul className="space-y-3 font-normal text-sm text-[var(--text-3)] whitespace-nowrap">
-                <li className="py-0.5 flex items-center">
-                  AI Quiz Generation
-                </li>
-                <li className="py-0.5 flex items-center">
-                  Smart PDF OCR
-                </li>
-                <li className="py-0.5 flex items-center">
-                  Quiz History
-                </li>
-                <li className="py-0.5 flex items-center">
-                  Analytics
-                </li>
-                <li className="py-0.5 flex items-center">
-                  Download Reports
-                </li>
-              </ul>
-            </div>
-
-            {/* Column 3: RESOURCES */}
-            <div className="custom-footer-col-min space-y-4">
-              <h5 className="text-xs font-bold uppercase tracking-wider text-[var(--text-1)]" style={{ letterSpacing: '0.1em' }}>
-                Resources
-              </h5>
-              <ul className="space-y-3 font-normal text-sm text-[var(--text-3)] whitespace-nowrap">
-                <li>
-                  <FooterLink 
-                    href="/privacy" 
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    text="Privacy Policy"
-                  />
-                </li>
-                <li>
-                  <FooterLink 
-                    href="/terms" 
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    text="Terms of Service"
-                  />
-                </li>
-                <li>
-                  <FooterLink 
-                    href="/faq" 
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    text="FAQ"
-                  />
-                </li>
-                <li>
-                  <FooterLink 
-                    href="/contact" 
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    text="Contact"
-                  />
-                </li>
-              </ul>
-            </div>
-
-          </div>
-
-          {/* Thin divider */}
-          {/* Thin divider */}
-          <div className="border-t border-[var(--border)] pt-8 mt-8">
-            
-            {/* Bottom Footer: Centered */}
-            <div className="flex flex-col items-center justify-center gap-2 text-center text-xs text-[var(--text-4)] font-medium">
-              <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-center">
-                <span>© 2026 QuizGens</span>
-                <span className="hidden sm:inline">•</span>
-                <span>Built with FastAPI • Gemini • Supabase</span>
-              </div>
-              <div>
-                <span>Made for students ❤️ by Madhav Jadoun</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
-    </motion.div>
-    
-    {/* Toast Notification */}
-    {toast && (
-      <div
-        role="alert"
-        aria-live="assertive"
-        className="fixed bottom-5 right-5 z-50 flex items-start gap-3 rounded-xl animate-in fade-in slide-in-from-bottom-4 duration-300 overflow-hidden sm:max-w-sm"
-        style={{
-          background: "var(--surface-2)",
-          border: "1px solid var(--border-strong)",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10)",
-        }}
-      >
-        {/* Left accent stripe */}
-        <span
-          className="absolute left-0 top-0 bottom-0 w-1 flex-shrink-0"
-          style={{
-            background:
-              toast.type === "success"
-                ? "#10b981"
-                : toast.type === "warning"
-                ? "#f59e0b"
-                : "#ef4444",
-          }}
-          aria-hidden="true"
-        />
-
-        {/* Pad content away from stripe */}
-        <div className="flex items-start gap-3 pl-5 pr-4 py-4 w-full">
-          {/* Icon */}
-          <span className="mt-0.5 flex-shrink-0">
-            {toast.type === "success" && (
-              <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="#10b981" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-              </svg>
-            )}
-            {toast.type === "warning" && (
-              <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="#f59e0b" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-              </svg>
-            )}
-            {toast.type === "error" && (
-              <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="#ef4444" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-              </svg>
-            )}
-          </span>
-
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            <p
-              className="text-sm font-semibold leading-tight"
-              style={{ color: "var(--text-1)" }}
-            >
-              {toast.title}
-            </p>
-            {toast.subtitle && (
-              <p
-                className="text-xs mt-1 leading-snug"
-                style={{ color: "var(--text-2)" }}
-              >
-                {toast.subtitle}
-              </p>
-            )}
-            {toast.action && (
-              <button
-                onClick={() => { setToast(null); fileRef.current?.click(); }}
-                className="mt-2 text-xs font-semibold underline-offset-2 hover:underline focus:outline-none cursor-pointer transition-colors"
-                style={{ color: "var(--indigo-accent)" }}
-              >
-                {toast.action}
+                Continue →
               </button>
-            )}
-          </div>
-
-          {/* Dismiss */}
-          <button
-            onClick={() => setToast(null)}
-            className="flex-shrink-0 transition-colors cursor-pointer rounded p-0.5 -mr-0.5"
-            style={{ color: "var(--text-3)" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "var(--text-1)")}
-            onMouseLeave={e => (e.currentTarget.style.color = "var(--text-3)")}
-            aria-label="Dismiss notification"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      </div>
-    )}
-
-    {/* Centered Authentication Required Modal */}
-    {showAuthModal && (
-      <div className="lg-backdrop" onClick={() => setShowAuthModal(false)}>
-        <div className="lg-card" onClick={e => e.stopPropagation()}>
-          <div className="lg-card-content">
-            <div className="lg-icon lg-icon-neutral">
-              <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-              </svg>
             </div>
-            <h3 className="lg-title">Sign in to continue</h3>
-            <p className="lg-message">
-              Upload PDFs, generate AI quizzes and sync your progress securely across all devices.
-            </p>
-          </div>
-          <div className="lg-divider" />
-          <div className="lg-btn-row">
-            <button className="lg-btn lg-btn-secondary" onClick={() => setShowAuthModal(false)}>
-              Not Now
-            </button>
-            <div className="lg-btn-separator" />
-            <button
-              className="lg-btn lg-btn-primary"
-              onClick={() => {
-                setShowAuthModal(false);
-                router.push("/login");
-              }}
-            >
-              Continue →
-            </button>
           </div>
         </div>
-      </div>
-    )}
+      )}
 
 
-  </div>
-);
+    </div>
+  );
 }

@@ -1,5 +1,4 @@
 import { MetadataRoute } from "next";
-import { BLOG_POSTS } from "@/lib/blog-data";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = "https://quizgens.tech";
@@ -11,18 +10,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/faq",
     "/privacy",
     "/terms",
-    "/ai-quiz-generator",
-    "/pdf-to-mcq-generator",
-    "/image-to-quiz-generator",
-    "/text-to-quiz-generator",
-    "/generate-quiz-from-pdf",
-    "/quiz-maker-from-notes",
-    "/mcq-generator",
-    "/true-false-generator",
-    "/fill-in-the-blanks-generator",
-    "/blog",
     "/tools",
-    "/author/madhav-jadoun",
   ];
 
   const sitemapEntries: MetadataRoute.Sitemap = staticPages.map((page) => {
@@ -32,15 +20,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     if (page === "") {
       priority = 1.0;
       changeFrequency = "daily";
-    } else if (page.endsWith("-generator") || page.includes("from-pdf") || page.includes("from-notes")) {
-      priority = 0.9;
-      changeFrequency = "weekly";
-    } else if (page === "/blog" || page === "/tools") {
+    } else if (page === "/tools") {
       priority = 0.8;
       changeFrequency = "daily";
-    } else if (page === "/author/madhav-jadoun") {
-      priority = 0.6;
-      changeFrequency = "weekly";
     }
 
     return {
@@ -51,12 +33,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     };
   });
 
-  const blogEntries: MetadataRoute.Sitemap = BLOG_POSTS.map((post) => ({
-    url: `${baseUrl}/blog/${post.slug}`,
-    lastModified: new Date(),
-    changeFrequency: "monthly",
-    priority: 0.7,
-  }));
-
-  return [...sitemapEntries, ...blogEntries];
+  return sitemapEntries;
 }

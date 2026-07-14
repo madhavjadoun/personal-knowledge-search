@@ -112,7 +112,7 @@ export default function AppShell({ children, title, subtitle, action, publicPage
             setUserLoading(false);
           }
         } else {
-          if (mounted) router.push("/login");
+          if (mounted) router.replace("/login");
         }
       } else {
         if (mounted) {
